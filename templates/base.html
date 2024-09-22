@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+{% load static %}
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+
+    <!-- Bootstrap CSS -->
+    <link href="{% static 'css/bootstrap/dist/css/bootstrap.min.css' %}" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="{% static 'css/icons/bootstrap-icons/font/bootstrap-icons.min.css' %}">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+    {% block head %}
+    {% endblock head %}
+    <title>{% block title %}Loja{% endblock title %}</title>
+</head>
+
+<body class="d-flex flex-column min-vh-100">
+    <!-- Navbar -->
+    {% url 'pages:about' as about_html %}
+    {% url 'pages:profile' user_id=request.user.id as perfil_html %}
+    {% url 'products:list' as products_html %}
+    {% url 'cart:detail' as cart_html %}
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'pages:home' %}">
+                <span class="font-weight-bold h4">Loja Python <i class="bi bi-newspaper"></i></span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                 <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == about_html %}active{% endif %}" href="{{ about_html }}">
+                            Sobre Nós <i class="bi bi-shop"></i>
+                        </a>
+                    </li>
+                    {% with user=request.user %}
+                    {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.path == products_html %}active{% endif %}" href="{{ products_html }}">
+                                Produtos <i class="bi bi-bag-plus"></i>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ cart_html }}" type="button" role="button"
+                                class="nav-link {% if request.path == cart_html %}active{% endif %}">
+                                Carrinho
+                                <i class="bi bi-cart4">
+                                    <span class="badge translate-middle position-absolute bg-light text-dark" style="font-size: 0.75rem; padding: 0.25em 0.4em;">
+                                      {{ cart_total_quantity }}
+                                    </span>
+                                </i>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.path == perfil_html %}active{% endif %}" href="{{ perfil_html }}">
+                                {{ user.username }} <i class="bi bi-file-person"></i>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-danger" href="{% url 'account_logout' %}">
+                                Sair <i class="bi bi-x-circle"></i>
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.path == login_html %}active{% endif %}" href="{% url 'account_login' %}">
+                                Login <i class="bi bi-door-open-fill"></i>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.path == signup_html %}active{% endif %}" href="{% url 'account_signup' %}">
+                                Registrar <i class="bi bi-box-arrow-in-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                 {% endwith %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mensagens de Alerta -->
+    {% if messages %}
+    <div class="container mt-3">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            <strong>Mensagem:</strong> {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Conteúdo Principal -->
+    <main class="flex-grow-1">
+        {% block content %}
+        {% endblock content %}
+    </main>
+
+    <!-- Rodapé -->
+    {% include "footer.html" %}
+    
+    <!-- Scripts -->
+    <!-- Bootstrap JS -->
+    <script src="{% static 'js/bootstrap/dist/js/bootstrap.bundle.min.js' %}"></script>
+    {% block script %}
+    {% endblock script %}
+</body>
+
+</html>

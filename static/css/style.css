@@ -1,0 +1,182 @@
+:root{
+    --green:#27ae60;
+    --black:#192a56;
+    --light-color:#666;
+    --box-shadow:0 .5rem 1.5rem rgba(0,0,0,.1);
+}
+
+section{
+    padding:2rem 5%;
+}
+
+section:nth-child(even){
+    background:#eee;
+}
+
+body {
+    font-family: 'Nunito', sans-serif;
+    font-size: 16px;
+    overflow-y: visible !important;
+    overflow-x: hidden;
+    overflow-wrap: break-word;
+    margin:0; padding:0;
+    box-sizing: border-box;
+    outline: none; border:none;
+}
+
+
+.heading {
+    font-size: 2.5rem;
+}
+
+@media (max-width: 768px) {
+    .heading {
+        font-size: 2rem;
+    }
+}
+
+.navbar-nav .nav-link.active {
+    background-color: var(--green);
+    color: #fff !important;
+    border-radius: .25rem;
+}
+
+
+/* MENU */
+
+.menu.btn{
+    margin-top: 1rem;
+    display: inline-block;
+    font-size: 1.7rem;
+    color:#fff;
+    background: var(--black);
+    border-radius: .5rem;
+    cursor: pointer;
+    padding:.8rem 3rem;
+}
+
+.menu.btn:hover{
+    background: var(--green);
+}
+
+.heading{
+    text-align: center;
+    color:var(--black);
+    font-size: 3rem;
+    padding-bottom: 2rem;
+    text-transform: uppercase;
+}
+
+.menu .box-container{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap:1.5rem;
+}
+
+.menu .box-container .box{
+    background: #fff;
+    border:.1rem solid rgba(0,0,0,.2);
+    border-radius: .5rem;
+    box-shadow: var(--box-shadow);
+}
+
+.menu .box-container .box .image{
+    padding:1.5rem;
+    overflow: hidden;
+    position: relative;
+}
+
+.menu .box-container .box .image img{
+    height: 100%;
+    width: 100%;
+    border-radius: .5rem;
+    object-fit: cover;
+}
+
+.menu .box-container .box .image .fa-heart{
+    position: absolute;
+    top:2.5rem; right: 2.5rem;
+    height: 5rem;
+    width: 5rem;
+    line-height: 5rem;
+    text-align: center;
+    font-size: 1.4rem;
+    background: #fff;
+    border-radius: 50%;
+    color:var(--black);
+}
+
+.menu .box-container .box .image .fa-heart:hover{
+    background-color: var(--green);
+    color:#fff;
+}
+
+.menu .box-container .box .content{
+    padding: 0 2rem 2rem;
+}
+
+.menu .box-container .box .content .stars{
+    padding-bottom: 1rem;
+}
+
+.menu .box-container .box .content .stars i{
+   font-size: 1.4rem;
+   color:var(--green);
+}
+
+.menu .box-container .box .content h3{
+    color:var(--black);
+    font-size: 2.0rem;
+}
+
+.menu .box-container .box .content p{
+    color:var(--light-color);
+    font-size: 1.2rem;
+    padding:.5rem 0;
+    line-height: 1.5;
+}
+
+.menu .box-container .box .content .price{
+    color:var(--green);
+    margin-left: 1rem;
+    font-size: 2.5rem;
+}
+
+.menu .box-container .box,
+.menu.btn {
+    box-shadow: var(--box-shadow);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.menu .box-container .box:hover,
+.menu.btn:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 .5rem 2rem rgba(0,0,0,.2);
+}
+
+/*FOOTER*/
+.footer .box-container .box h3 {
+    font-size: 1.8rem;
+    color: var(--black);
+}
+
+.footer .box-container .box a {
+    color: var(--black);
+    font-size: 1.2rem;
+}
+
+.footer .box-container .box a:hover {
+    color: var(--green);
+    text-decoration: none;
+    transition: color 0.3s ease-in-out;
+}
+
+.footer .box-container .box i {
+    margin-right: 0.5rem;
+    color: var(--green);
+}
+
+.iti__flag {
+    background-color: #f8f8f8; /* Cor de fundo personalizada */
+    border-radius: 5px; /* Bordas arredondadas */
+}

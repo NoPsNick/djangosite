@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}{{ product.name }}{% endblock title %}
+
+{% block content %}
+
+    <div class="container my-3">
+        <div class="row">
+            <div class="col-lg-3 mb-3 mb-lg-0">
+                {% if product.image %}
+                <img class="img-fluid" src="/media/{{ product.image }}" alt="{{ product.name }}">
+                {% else %}
+                <img class="img-fluid" src="{% static 'images/no_image.jpg' %}" alt="No image available">
+                {% endif %}
+            </div>
+            <div class="col-lg-9">
+                <h1 class="fw-bold">{{ product.name }}</h1>
+                <h2>R$ {{ product.price }}</h2>
+                <div class="mt-3">{{ product.description|linebreaksbr }}</div>
+                <form class="mt-3" action="{% url 'cart:cart_add' slug=product.slug %}" method="post">
+                    <div class="mb-3">
+                        {{ form.quantity.label_tag }}
+                        {% render_field form.quantity class+="form-control" %}
+                        {{ form.override }}
+                    </div>
+                    {% csrf_token %}
+                    <input class="btn btn-success" type="submit" value="Adicionar ao Carrinho">
+                </form>
+                <p class="mt-3">
+                    Voltar para o catálogo de
+                    <a class="text-decoration-none" href="{% url 'products:list' %}?category={{ product.category }}">
+                        {{ product.category }}
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+{% endblock content %}

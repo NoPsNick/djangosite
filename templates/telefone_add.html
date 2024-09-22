@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block head %}
+    <!-- intl-tel-input -->
+    <link rel="stylesheet" href="{% static 'css/intl-tel-input/build/css/intlTelInput.css' %}">
+    <link rel="stylesheet" href="{% static 'css/intl-tel-input/build/img/flags@2x.png' %}">
+    <link rel="stylesheet" href="{% static 'css/intl-tel-input/build/img/flags.png' %}">
+    
+{% endblock head %}
+
+{% block title %}Adicionar Telefone{% endblock title %}
+
+{% block content %}
+<div class="container my-3 align-items-center">
+    <div class="col-lg-auto">
+        {% csrf_token %}
+        {% crispy form %}
+        <a class="align-middle" href="{% url 'pages:phone_list' %}">Voltar</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+    <!-- intl-tel-input -->
+    <script src="{% static 'js/intl-tel-input/build/js/intlTelInput.min.js' %}"></script>
+    <script src="{% static 'js/intl-tel-input/build/js/utils.js' %}"></script>
+    <script src="{% static 'js/telefone-form.js' %}"></script>
+{% endblock script %}

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}Telefones{% endblock title %}
+
+{% block content %}
+
+<div class="container">
+    <section class="menu" id="menu">
+        <div class="mx-auto" style="width: 200px;">
+            <h1 class="font-weight-bold">Telefones</h1>
+            {% if telefone_list|length < 2 %}
+            <p>
+                <a class="btn btn-success" href="{% url 'pages:phone_add' %}">Adicionar Telefone</a>
+            </p>
+            {% endif %}
+        </div>
+        {% if telefone_list %}
+        <div class="box-container">
+            {% for telefone in telefone_list %}
+            <div class="box">
+                <div class="content">
+                    <br>
+                    {% if telefone.selected == True %}
+                    <h3>Telefone selecionado <i class="bi bi-check-lg"></i></h3>
+                    {% else %}
+                    <h3>Telefone <i class="bi bi-slash-circle"></i></h3>
+                    {% endif %}
+                    <p class="mb-0">
+                        {{ telefone.number }}
+                    </p>
+                    {% if telefone.selected == False %}
+                    <div class="btn-group btn-group-lg">
+                    <a class="btn btn-info" href="{{ telefone.absolute_url }}">Alterar</a>
+                    
+                    <a class="btn btn-danger" href="{{ telefone.remove_url }}">Remover</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="col-lg-auto">
+                <h1>Sem telefone</h1>
+                Você não possuí telefone. Adicione para poder fazer pedidos.
+            </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+
+{% endblock content %}

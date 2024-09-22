@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% load crispy_forms_filters %}
+
+{% block title %}Remover telefone{% endblock title %}
+
+{% block content %}
+{% if object.selected == False %}
+<div class="container my-3">
+    <h1 class="text-warning">Você tem certeza que deseja remover o número de telefone</h1>
+    <div class="col-lg-auto">
+        <form method="post">{% csrf_token %}
+            <p class="mb-0">{{ object }}</p>
+            {{ form|crispy }}
+            <input type="submit" value="Confirmar">
+            <a class="align-middle" href="{% url 'pages:phone_list' %}">Voltar</a>
+        </form>
+    </div>
+</div>
+{% else %}
+<div class="container my-3">
+    <h1>Não é possível remover o seu telefone principal.</h1>
+    <div class="col-lg-auto">
+        <a class="align-middle" href="{% url 'pages:phone_list' %}">Voltar</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

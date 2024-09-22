@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}
+    {% if selected_category %}
+        {{ selected_category }} - Categoria
+    {% else %}
+        Produtos
+    {% endif %}
+{% endblock title %}
+
+{% block content %}
+<div class="container my-3">
+    <form action="{% url 'products:list' %}" method="get" class="d-flex mb-4">
+        <input name="search" type="text" class="form-control me-2" aria-label="Pesquisar" placeholder="Pesquisar..." value="{{ request.GET.search }}">
+        <button class="btn btn-outline-info" type="submit">
+            <img src="{% static 'admin/img/search.svg' %}" alt="Pesquisar">
+        </button>
+    </form>
+    <div class="row">
+        <div class="col-lg-3">
+            <ul class="list-group mb-3 mb-lg-0">
+                <!-- 'All products' link -->
+                <a class="list-group-item list-group-item-action {% if not request.GET.category %}active{% endif %}"
+                    href="{% url 'products:list' %}">
+                    Todos os produtos
+                </a>
+
+                <!-- Category Filter -->
+                {% for cat in categories %}
+                <a class="list-group-item list-group-item-action {% if request.GET.category == cat.slug %}active{% endif %}"
+                    href="?category={{ cat.slug }}">
+                    {{ cat.name }}
+                </a>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="col-lg-9">
+            <div class="row">
+                {% for product in products %}
+                    <!-- Product Card -->
+                    <div class="col-md-4 mb-3">
+                        <div class="card">
+                            <a href="{{ product.link_absoluto }}">
+                                {% if product.image %}
+                                <img class="card-img-top img-fluid" src="{{ product.image.url }}" alt="{{ product.name }}">
+                                {% else %}
+                                <img class="card-img-top img-fluid" src="{% static 'images/no_image.jpg' %}" alt="No image available">
+                                {% endif %}
+                            </a>
+                            <div class="card-body d-flex flex-column justify-content-between">
+                                <a class="text-decoration-none text-dark" href="{{ product.link_absoluto }}">
+                                    <h5 class="card-title">{{ product.name }}</h5>
+                                </a>
+                                 <p class="card-text fw-bold">R$ {{ product.price }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% if forloop.counter|divisibleby:"3" and not forloop.last %}
+                        </div><div class="row">
+                    {% endif %}
+                {% endfor %}
+            </div>
+        
+            <!-- Adjust empty columns if necessary -->
+            {% if products.paginator.count|divisibleby:"3" == 2 %}
+                <div class="col-md-4 mb-3"></div>
+             {% elif products.paginator.count|divisibleby:"3" == 1 %}
+                <div class="col-md-4 mb-3"></div>
+                <div class="col-md-4 mb-3"></div>
+            {% endif %}
+        
+            <!-- Pagination -->
+            {% if products.has_other_pages %}
+                {% with page=products selected_category=selected_category %}
+                    {% include "pagination.html" %}
+                {% endwith %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock content %}

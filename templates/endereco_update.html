@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}Alterar Endereço{% endblock title %}
+
+{% block content %}
+<div class="container my-3">
+    <h1>Alterar endereço</h1>
+    <div class="col-lg-auto">
+        <form method="post">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <button class="btn btn-success" type="submit">Alterar</button>
+            <a class="align-middle" href="{% url 'pages:address_list' %}">Voltar</a>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+    <!-- imask -->
+    <script src="{% static 'js/imask/dist/imask.min.js' %}"></script>
+    <script src="{% static 'js/endereco-form.js' %}"></script>
+{% endblock script %}

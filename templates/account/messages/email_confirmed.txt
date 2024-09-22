@@ -1,0 +1,1 @@
+Você confirmou o e-mail: {{email}}. Com sucesso.

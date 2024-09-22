@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block head %}
+    <!-- css3 -->
+    <link rel="stylesheet" href="{% static 'css/w3-css/4/w3pro.css' %}" />
+{% endblock head %}
+
+{% block title %}Sobre Nós{% endblock title %}
+
+{% block content %}
+
+    <section class="menu" id="menu">
+        <div class="container my-3">
+            <div class="mx-auto" style="width: 200px;">
+                <h1 class="font-weight-bold">Sobre nós</h1>
+            </div>
+        
+            <div class="w3-row w3-row-padding w3-margin-bottom" style="display: flex; flex-wrap: wrap;">
+    
+                {% for about in about_list %}
+    
+                <div class="w3-col s12 m6 l4" style="flex: 1 1 auto; padding: 0 8px;">
+                    <div class="w3-card-4" style="width: 100%; border-radius: 5px; overflow: hidden;">
+                        {% if about.image_cima %}
+                        {% if about.link_image_cima %}<a href="{{about.link_image_cima}}">{% endif %}
+                            <img class="w3-card-img-top w3-responsive w3-image"
+                                src="/media/{{about.image_cima}}" alt="" style="border-top-left-radius: 15px; border-top-right-radius: 15px;">
+                        {% if about.link_image_cima %}</a>{% endif %}
+                        {% endif %}
+                        {% if about.title %}
+                        <div class="w3-container w3-center">
+                            {% if about.link_title %} <a href="{{about.link_title}}">{% endif %}
+                            <h5>{{ about.title|title }}</h5>
+                            {% if about.link_title %} </a>{% endif %}
+                        </div>
+                        {% endif %}
+                        {% if about.image_meio %}
+                        {% if about.link_image_meio %}<a href="{{about.link_image_meio}}">{% endif %}
+                        <img class="w3-card-img-top w3-responsive w3-image"
+                            src="/media/{{about.image_meio}}" alt="">
+                        {% if about.link_image_meio %}</a>{% endif %}
+                        {% endif %}
+                        {% if about.description %}
+                        <div class="w3-container">
+                            <p>
+                                {{ about.description|linebreaksbr }}
+                                {% if about.link_description %}
+                                <a href="{{about.link_description}}" style="text-decoration:none">
+                                {% if about.text_link_description %}{{about.text_link_description}}{% else %} Clique Aqui {% endif %}
+                                </a>
+                                {% endif %}
+                            </p>
+                        </div>
+                        {% endif %}
+                        {% if about.image_baixo %}
+                        {% if about.link_image_baixo %}<a href="{{about.link_image_baixo}}">{% endif %}
+                        <img class="w3-card-img-top w3-responsive w3-image"
+                            src="/media/{{about.image_baixo}}" alt="">
+                        {% if about.link_image_baixo %}</a>{% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+    
+                {% if about.last %}
+                <div class="w3-row w3-row-padding w3-margin-bottom" style="display: flex; flex-wrap: wrap; width: 100%;"></div>
+                {% endif %}
+    
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+{% endblock content %}
+
+{% block script %}
+    <!-- imask -->
+    <script src="{% static 'js/imask/dist/imask.min.js' %}"></script>
+{% endblock script %}

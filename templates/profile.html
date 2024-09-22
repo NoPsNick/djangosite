@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+Perfil - {{ user_data.username }}
+{% endblock title %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <!-- Sidebar do Perfil -->
+        <div class="col-md-3">
+            <div class="card">
+                <img src="{% static 'images/no_image.jpg' %}" class="card-img-top rounded-circle mx-auto mt-3" alt="Imagem de perfil" style="width: 150px;">
+                <div class="card-body text-center">
+                    <h5 class="card-title">{{ user_data.full_name }}</h5>
+                    <p class="card-text">{{ user_data.email }}</p>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><a href="{% url 'account_change_password' %}"><i class="bi bi-key"></i> Alterar Senha</a></li>
+                    {% if user_data.is_staff %}
+                    <li class="list-group-item"><a href="{% url 'admin:index' %}"><i class="bi bi-key"></i> Site Administrativo</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Conteúdo Principal -->
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Detalhes do Perfil</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-sm-4">
+                            <p class="text-muted mb-0">Nome Completo</p>
+                        </div>
+                        <div class="col-sm-8">
+                            <p class="text-secondary mb-0"><i class="{{ user_data.vip_icon }}"></i> {{ user_data.full_name }}</p>
+                        </div>
+                    </div>
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-sm-4">
+                            <p class="text-muted mb-0">VIP</p>
+                        </div>
+                        <div class="col-sm-8">
+                            {% if user_data.vip_info %}
+                                <p class="text-secondary mb-0">{{ user_data.vip_info|linebreaksbr }}</p>
+                                <a class="text-secondary mb-0" href="{% url 'pages:address_list'  %}"> Ver/Alterar plano VIP </a>
+                            {% else %}
+                                <a href="{% url 'pages:address_add'  %}" class="text-secondary mb-0">Você não é um membro
+                                VIP, adiquira um plano VIP clicando aqui</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-sm-4">
+                            <p class="text-muted mb-0">Email selecionado</p>
+                        </div>
+                        <div class="col-sm-8">
+                            {% if user_data.email %}
+                            <p class="text-secondary mb-0">{{ user_data.email }}</p>
+                            <a href="{% url 'account_email' %}" class="text-secondary mb-0">Alterar/Adicionar e-mail</a>
+                            {% else %}
+                            <a href="{% url 'account_email' %}" class="text-secondary mb-0">Adicione um e-mail</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-sm-4">
+                            <p class="text-muted mb-0">Data de Registro</p>
+                        </div>
+                        <div class="col-sm-8">
+                            <p class="text-secondary mb-0">{{ user_data.date_joined }}</p>
+                        </div>
+                    </div>
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-sm-4">
+                            <p class="text-muted mb-0">Último Login</p>
+                        </div>
+                        <div class="col-sm-8">
+                            <p class="text-secondary mb-0">{{ user_data.last_login }}</p>
+                        </div>
+                    </div>
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-sm-4">
+                            <p class="text-muted mb-0">Telefone selecionado</p>
+                        </div>
+                        <div class="col-sm-8">
+                            {% if user_data.phone_number %}
+                                <p class="text-secondary mb-0">{{ user_data.phone_number.number }}</p>
+                                <a href="{% url 'pages:phone_list' %}" class="text-secondary mb-0"> Alterar/Adicionar Telefones </a>
+                            {% else %}
+                                <a href="{% url 'pages:phone_add' %}" class="text-secondary mb-0">Adicione um telefone</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-sm-4">
+                            <p class="text-muted mb-0">Endereço selecionado</p>
+                        </div>
+                        <div class="col-sm-8">
+                            {% if user_data.address %}
+                                <p class="text-secondary mb-0">{{ user_data.address.full_address|linebreaksbr }} </p>
+                                <a href="{% url 'pages:address_list' %}" class="text-secondary mb-0"> Alterar/Adicionar Endereços </a>
+                            {% else %}
+                                <a href="{% url 'pages:address_add' %}" class="text-secondary mb-0">Adicione um endereço</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
