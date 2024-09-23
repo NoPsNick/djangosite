@@ -43,8 +43,8 @@ class ReturnPolicy(TimeStampedModel):
         return self.title
 
     class Meta:
-        verbose_name = "politica de retorno"
-        verbose_name_plural = "politicas de retorno"
+        verbose_name = "politica de devolução"
+        verbose_name_plural = "politicas de devolução"
 
 
 class TermOfService(TimeStampedModel):

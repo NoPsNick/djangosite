@@ -270,7 +270,7 @@ class TermsOfService(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        terms_of_service = TermOfService.objects.get_terms_of_services()
+        terms_of_service = TermOfService.objects.get_terms_of_service()
 
         context['terms_of_service'] = terms_of_service
 
