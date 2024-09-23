@@ -7,7 +7,8 @@ from django.core.exceptions import ValidationError
 
 from model_utils.models import TimeStampedModel, StatusModel
 from localflavor.br.models import BRPostalCodeField, BRStateField
-from datetime import timedelta
+
+from datetime import timedelta, date
 
 from users.managers import PhoneNumberManager, AddressManager, CachedUserManager
 
@@ -159,6 +160,18 @@ class Role(StatusModel, TimeStampedModel):
         return f"{self.user.username} - {self.role_type.name} ({self.get_status_display()})"
 
 
+def verify_birth_date(birth_date):
+    if not birth_date:
+        raise ValidationError("Usuário precisa ter uma data de nascimento válida.")
+    else:
+        today = date.today()
+        age = today.year - birth_date.year - (
+            (today.month, today.day) < (birth_date.month, birth_date.day)
+        )
+        if age < 18:
+            raise ValidationError("Usuário precisa ter 18 anos ou mais.")
+
+
 class User(AbstractUser):
     CPF, CNPJ = "CPF", "CNPJ"
 
@@ -176,12 +189,14 @@ class User(AbstractUser):
     phone_number = models.OneToOneField(PhoneNumber, verbose_name="Telefone", related_name="telefone",
                                         on_delete=models.SET_NULL, null=True, blank=True)
     tos_accept = models.BooleanField("Aceita os Termos de Serviço", default=False)
+    birth_date = models.DateField("Date de Nascimento", blank=True, null=True)
 
     objects = CachedUserManager()
 
     def clean(self):
         if not self.tos_accept:
             raise ValidationError("Usuário precisa aceitar os Termos de Serviço.")
+        verify_birth_date(self.birth_date)
 
     def get_perfil_url(self):
         return reverse("pages:perfil", kwargs={"user_id": self.id})

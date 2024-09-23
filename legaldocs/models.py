@@ -1,10 +1,8 @@
-from django.contrib.auth import get_user_model
 from django.db import models
 from model_utils.models import TimeStampedModel
 
-from .managers import TermOfServiceManager
+from .managers import TermOfServiceManager, PrivacyPolicyManager, ReturnPolicyManager
 
-User = get_user_model()
 
 
 # Create your models here.
@@ -26,6 +24,8 @@ class PrivacyPolicy(TimeStampedModel):
     content = models.TextField("Conteúdo")
     effective_date = models.DurationField(verbose_name="Data de Vigência")
 
+    objects = PrivacyPolicyManager()
+
     def __str__(self):
         return self.title
 
@@ -39,6 +39,8 @@ class ReturnPolicy(TimeStampedModel):
     content = models.TextField("Conteúdo")
     effective_date = models.DurationField(verbose_name="Data de Vigência")
 
+    objects = ReturnPolicyManager()
+
     def __str__(self):
         return self.title
 
@@ -50,12 +52,11 @@ class ReturnPolicy(TimeStampedModel):
 class TermOfService(TimeStampedModel):
     title = models.CharField('Título', max_length=200)
     content = models.TextField('Conteúdo')
-    who_made = models.OneToOneField(User, on_delete=models.CASCADE)
 
     objects = TermOfServiceManager()
 
     def __str__(self):
-        return f'{self.title} feito por: {self.who_made}'
+        return f'{self.title}'
 
     class Meta:
         verbose_name = "termo de serviço"

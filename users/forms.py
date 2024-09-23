@@ -1,4 +1,5 @@
 import re
+from datetime import date
 
 from allauth.account.forms import SignupForm
 from django.utils.safestring import mark_safe
@@ -6,10 +7,18 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Row, Column, Submit
 from django import forms
 
+from .models import verify_birth_date
+
 
 class UserSignupForm(SignupForm):
     first_name = forms.CharField(max_length=30, label='Primeiro Nome')
     last_name = forms.CharField(max_length=30, label='Último Nome')
+
+    birth_date = forms.DateField(
+        widget=forms.SelectDateWidget(years=range(1900, date.today().year + 1)),
+        validators=[verify_birth_date]
+    )
+
     doc_type = forms.ChoiceField(
         choices=[('CPF', 'CPF'), ('CNPJ', 'CNPJ')],
         label='Tipo do Documento'
@@ -28,6 +37,7 @@ class UserSignupForm(SignupForm):
             'username',
             'first_name',
             'last_name',
+            'birth_date',
             Row(
                 Column('doc_type', css_class='col-md-4'),
                 Column('doc_number', css_class='col-md-8'),
@@ -46,13 +56,17 @@ class UserSignupForm(SignupForm):
             raise forms.ValidationError('Você precisa aceitar os Termos de Serviço para se registrar.')
         return tos_accept
 
+    def clean_birth_date(self):
+        birth_date = self.cleaned_data['birth_date']
+        verify_birth_date(birth_date)
+        return birth_date
+
     def clean(self):
         cleaned_data = super().clean()
         doc_type = cleaned_data.get('doc_type')
         doc_number = cleaned_data.get('doc_number')
 
         if doc_type and doc_number:
-            # Add document validation logic here
             if doc_type == 'CPF' and not self.is_valid_cpf(doc_number):
                 self.add_error('doc_number', 'Número de CPF inválido.')
             elif doc_type == 'CNPJ' and not self.is_valid_cnpj(doc_number):
@@ -106,9 +120,13 @@ class UserSignupForm(SignupForm):
         if not self.cleaned_data.get('tos_accept'):
             raise forms.ValidationError("Você precisa aceitar os Termos de Serviço.")
 
+        if not self.cleaned_data.get('birth_date'):
+            raise forms.ValidationError("Você precisa oferecer uma data de nascimento correta.")
+
         user = super().save(request)
         user.first_name = self.cleaned_data.get('first_name')
         user.last_name = self.cleaned_data.get('last_name')
+        user.birth_date = self.cleaned_data.get('birth_date')
         user.doc_type = self.cleaned_data.get('doc_type')
         user.doc_number = self.cleaned_data.get('doc_number')
         user.tos_accept = self.cleaned_data.get('tos_accept')
