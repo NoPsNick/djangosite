@@ -1,63 +1,43 @@
 <!-- Footer -->
-    <footer class="text-center text-lg-start bg-light text-muted">
-        <!-- Section: Links  -->
-        <section class="">
-            <div class="container text-center text-md-start mt-5">
-                <div class="row mt-3">
-                    <!-- Grid column -->
-                    <div class="col-md-3 col-lg-4 col-xl-3 mx-auto mb-4">
-                        <h6 class="text-uppercase fw-bold mb-4">
-                            <i class="bi bi-gem me-3"></i>Empresa
-                        </h6>
-                        <p>
-                            Falando sobre a empresa aqui...
-                        </p>
-                    </div>
-                    <!-- Grid column -->
+<footer class="text-center text-lg-start footer">
+    <section class="">
+        <div class="container text-center text-md-start mt-5">
+            <div class="row mt-3">
+                <div class="col-md-3 col-lg-4 col-xl-3 mx-auto mb-4">
+                    <h6 class="text-uppercase fw-bold mb-4">
+                        <i class="bi bi-gem me-3"></i>Empresa
+                    </h6>
+                    <p>Falando sobre a empresa aqui...</p>
+                </div>
 
-                    <!-- Grid column -->
-                    <div class="col-md-2 col-lg-2 col-xl-2 mx-auto mb-4">
-                        <h6 class="text-uppercase fw-bold mb-4">Redes sociais</h6>
-                        <p>
-                            <a href="#" class="text-reset">Facebook <i class="bi bi-facebook"></i></a>
-                        </p>
-                        <p>
-                            <a href="#" class="text-reset">Instagram <i class="bi bi-instagram"></i></a>
-                        </p>
-                        <p>
-                            <a href="#" class="text-reset">Twitter <i class="bi bi-twitter"></i></a>
-                        </p>
-                    </div>
-                    <!-- Grid column -->
+                <div class="col-md-2 col-lg-2 col-xl-2 mx-auto mb-4">
+                    <h6 class="text-uppercase fw-bold mb-4">Redes sociais</h6>
+                    <p><a href="#" class="text-reset">Facebook <i class="bi bi-facebook"></i></a></p>
+                    <p><a href="#" class="text-reset">Instagram <i class="bi bi-instagram"></i></a></p>
+                    <p><a href="#" class="text-reset">Twitter <i class="bi bi-twitter"></i></a></p>
+                </div>
 
-                    <!-- Grid column -->
-                    <div class="col-md-3 col-lg-2 col-xl-2 mx-auto mb-4">
-                        <h6 class="text-uppercase fw-bold mb-4">Links úteis</h6>
-                        <p><a href="#" class="text-reset">Produtos</a></p>
-                        <p><a href="#" class="text-reset">Carrinho</a></p>
-                        <p><a href="#" class="text-reset">Meus pedidos</a></p>
-                    </div>
-                    <!-- Grid column -->
+                <div class="col-md-3 col-lg-2 col-xl-2 mx-auto mb-4">
+                    <h6 class="text-uppercase fw-bold mb-4">Links úteis</h6>
+                    <p><a href="#" class="text-reset">Produtos</a></p>
+                    <p><a href="#" class="text-reset">Carrinho</a></p>
+                    <p><a href="#" class="text-reset">Meus pedidos</a></p>
+                </div>
 
-                    <!-- Grid column -->
-                    <div class="col-md-4 col-lg-3 col-xl-3 mx-auto mb-md-0 mb-4">
-                        <h6 class="text-uppercase fw-bold mb-4">Contatos</h6>
-                        <p><i class="bi bi-house me-3"></i>Jaboticabal, SP, BR</p>
-                        <p><i class="bi bi-envelope me-3"></i>info@example.com</p>
-                        <p>+ 01 234 567 88<i class="bi bi-phone me-2"></i></p>
-                        <p>+ 01 234 567 89<i class="bi bi-phone me-2"></i></p>
-                    </div>
-                    <!-- Grid column -->
+                <div class="col-md-4 col-lg-3 col-xl-3 mx-auto mb-md-0 mb-4">
+                    <h6 class="text-uppercase fw-bold mb-4">Contatos</h6>
+                    <p><i class="bi bi-house me-3"></i>Jaboticabal, SP, BR</p>
+                    <p><i class="bi bi-envelope me-3"></i>info@example.com</p>
+                    <p>+ 01 234 567 88<i class="bi bi-phone me-2"></i></p>
+                    <p>+ 01 234 567 89<i class="bi bi-phone me-2"></i></p>
                 </div>
             </div>
-        </section>
-        <!-- Section: Links  -->
-
-        <!-- Copyright -->
-        <div class="text-center p-4" style="background-color: rgba(0, 0, 0, 0.05);">
-            {% now "Y" as current_year %}
-            © {{ current_year }} Copyright:
-            <a class="text-reset fw-bold" href="https://mdbootstrap.com/">MDBootstrap.com</a>
         </div>
-        <!-- Copyright -->
-    </footer>
+    </section>
+
+    <div class="text-center p-4 copyright-bg">
+        {% now "Y" as current_year %}
+        © {{ current_year }} Copyright:
+        <a class="text-reset fw-bold" href="https://mdbootstrap.com/">MDBootstrap.com</a>
+    </div>
+</footer>

@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}Informações Legais{% endblock title %}
+
+{% block content %}
+    <div class="container my-5">
+        <h2 class="text-center mb-4">Informações Legais</h2>
+        
+        <!-- Termos de Serviço -->
+        <div class="accordion" id="legalDocsAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#termsOfService">
+                        Termos de Serviço
+                    </button>
+                </h2>
+                <div id="termsOfService" class="accordion-collapse collapse show">
+                    <div class="accordion-body">
+                        {% for term in terms_of_service %}
+                            <h4>{{ term.title }}</h4>
+                            <p>{{ term.content }}</p>
+                            <small class="text-muted">Última modificação: {{ term.modified }}</small>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+    
+            <!-- Políticas de Privacidade -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#privacyPolicy">
+                        Políticas de Privacidade
+                    </button>
+                </h2>
+                <div id="privacyPolicy" class="accordion-collapse collapse">
+                    <div class="accordion-body">
+                        {% for policy in privacy_policies %}
+                            <h4>{{ policy.title }}</h4>
+                            <p>{{ policy.content }}</p>
+                            <small class="text-muted">Última modificação: {{ policy.modified }}</small>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+    
+            <!-- Políticas de Devolução -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#returnPolicy">
+                        Políticas de Devolução
+                    </button>
+                </h2>
+                <div id="returnPolicy" class="accordion-collapse collapse">
+                    <div class="accordion-body">
+                        {% for policy in return_policies %}
+                            <h4>{{ policy.title }}</h4>
+                            <p>{{ policy.content }}</p>
+                            <small class="text-muted">Última modificação: {{ policy.modified }}</small>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

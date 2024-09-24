@@ -15,9 +15,9 @@ from rest_framework import status, viewsets
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.permissions import IsAuthenticated
 
-from legaldocs.models import TermOfService
-from pages.forms import EnderecoCreateForm, TelefoneCreateForm
+from legaldocs.models import TermOfService, PrivacyPolicy, ReturnPolicy
 from users.models import Address, PhoneNumber
+from .forms import EnderecoCreateForm, TelefoneCreateForm
 from .decorators import restrict_to_server, strict_rate_limit
 from .services import get_user_data, get_abouts, get_user_addresses, get_user_numbers, get_promotions
 from .serializers import AddressSerializer, PhoneNumberSerializer
@@ -264,15 +264,19 @@ class UserPhoneNumberDelete(UserPassesTestMixin, DeleteView):
         return reverse_lazy('pages:phone_list')
 
 
-class TermsOfService(TemplateView):
-    template_name = 'terms_of_service.html'
+class LegalInfos(TemplateView):
+    template_name = 'legal_infos.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
         terms_of_service = TermOfService.objects.get_terms_of_service()
+        privacy_policies = PrivacyPolicy.objects.get_privacy_policies()
+        return_policies = ReturnPolicy.objects.get_return_policies()
 
         context['terms_of_service'] = terms_of_service
+        context['privacy_policies'] = privacy_policies
+        context['return_policies'] = return_policies
 
         return context
 

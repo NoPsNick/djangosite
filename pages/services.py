@@ -43,7 +43,7 @@ def get_abouts():
     if not abouts:
         abouts_instance = About.objects.order_by('position', 'created')
         serializer = AboutSerializer(abouts_instance, many=True)
-        file_cache.set('about_list', serializer.data, timeout=settings.CACHE_TIMEOUT)
+        file_cache.set('about_list', serializer.data, timeout=settings.HIGH_TIME_CACHE_TIMEOUT)
         abouts = serializer.data
 
     return abouts

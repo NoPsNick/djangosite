@@ -16,12 +16,22 @@ section:nth-child(even){
 body {
     font-family: 'Nunito', sans-serif;
     font-size: 16px;
-    overflow-y: visible !important;
-    overflow-x: hidden;
-    overflow-wrap: break-word;
-    margin:0; padding:0;
+    margin: 0;
+    padding: 0;
     box-sizing: border-box;
-    outline: none; border:none;
+    transition: none;
+}
+
+/* Modo Claro */
+.light-mode {
+    background-color: #ffffff;
+    color: #000000;
+}
+
+/* Modo Escuro */
+.dark-mode {
+    background-color: #121212;
+    color: #ffffff;
 }
 
 
@@ -154,7 +164,59 @@ body {
     box-shadow: 0 .5rem 2rem rgba(0,0,0,.2);
 }
 
+/* Modo Escuro para o Menu */
+body.dark-mode .menu .box-container .box {
+    background-color: #333; /* Fundo cinza escuro */
+    color: #fff; /* Texto branco */
+    border: 1px solid #444; /* Borda cinza mais clara */
+}
+
+body.dark-mode .menu .box-container .box .content h3 {
+    color: #fff; /* Cor do título no modo escuro */
+}
+
+body.dark-mode .menu .box-container .box .content p {
+    color: #ccc; /* Texto com cor mais suave no modo escuro */
+}
+
+body.dark-mode .menu .btn-info {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+body.dark-mode .menu .btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+body.dark-mode .menu .btn-success {
+    background-color: #198754;
+    border-color: #198754;
+}
+
 /*FOOTER*/
+.footer {
+    transition: background-color 0.5s, color 0.5s;
+}
+
+.dark-mode .footer {
+    background-color: #1a1a1a; /* cor de fundo do footer em dark mode */
+    color: #ffffff; /* cor do texto em dark mode */
+}
+
+.dark-mode .footer a {
+    color: #ffffff; /* cor dos links em dark mode */
+}
+
+.light-mode .footer {
+    background-color: #f8f9fa; /* cor de fundo do footer em light mode */
+    color: #6c757d; /* cor do texto em light mode */
+}
+
+.light-mode .footer a {
+    color: #000000; /* cor dos links em light mode */
+}
+
 .footer .box-container .box h3 {
     font-size: 1.8rem;
     color: var(--black);
@@ -176,7 +238,103 @@ body {
     color: var(--green);
 }
 
+.copyright-bg {
+    background-color: rgba(0, 0, 0, 0.05); /* Altere para a cor que desejar */
+    transition: background-color 0.5s;
+}
+
+.dark-mode .copyright-bg {
+    background-color: #1a1a1a; /* Cor de fundo no modo escuro */
+}
+
+/* Bandeiras */
 .iti__flag {
     background-color: #f8f8f8; /* Cor de fundo personalizada */
     border-radius: 5px; /* Bordas arredondadas */
+}
+
+/* Para links e outros elementos */
+
+.dark-mode .w3-card-4 {
+    background-color: #333; /* Cor de fundo cinza para o modo escuro */
+    color: #fff; /* Cor do texto para o modo escuro */
+    border: 1px solid #444; /* Opcional: uma borda um pouco mais clara */
+}
+
+.dark-mode .form-text {
+    color: #fff;
+    border: 1px solid #444;
+}
+
+.dark-mode .form-text:focus {
+    outline: none;
+    background-color: #333;
+}
+
+/*PERFIL*/
+.dark-mode .card {
+    background-color: #495057; /* Cor do cartão no modo escuro */
+    border-color: #6c757d; /* Borda do cartão no modo escuro */
+}
+
+.dark-mode .card-header,
+.dark-mode .text-muted,
+.dark-mode .text-secondary,
+.dark-mode p{
+    color: #e0e0e0 !important; /* Adicione !important para forçar a cor */
+}
+
+.dark-mode a {
+    color: deepskyblue;
+}
+
+.dark-mode .card-header {
+    background-color: #444444; /* Cor do cabeçalho no modo escuro */
+    color: #FFFFFF;
+}
+
+
+.dark-mode .text-muted {
+    color: #FFFFFF; /* Texto desbotado no modo escuro */
+}
+
+.dark-mode .list-group-item {
+    background-color: #495057; /* Fundo dos itens da lista no modo escuro */
+    border-color: #6c757d; /* Borda dos itens da lista no modo escuro */
+}
+
+/*CARRINHO*/
+body.dark-mode .table {
+    background-color: #495057; /* Cor de fundo da tabela */
+    color: #ffffff; /* Texto claro na tabela */
+}
+
+body.dark-mode .table th {
+    background-color: #212529; /* Cor do cabeçalho da tabela */
+    color: #ffffff; /* Texto claro no cabeçalho */
+}
+
+body.dark-mode .table td {
+    background-color: #495057; /* Cor de fundo das células da tabela */
+    border-color: #6c757d; /* Borda das células */
+}
+
+body.dark-mode .btn-info {
+    background-color: #007bff; /* Cor do botão de atualizar */
+    border-color: #007bff; /* Borda do botão de atualizar */
+}
+
+body.dark-mode .btn-danger {
+    background-color: #dc3545; /* Cor do botão de remover */
+    border-color: #dc3545; /* Borda do botão de remover */
+}
+
+body.dark-mode .btn-primary {
+    background-color: #0d6efd; /* Cor do botão continuar comprando */
+    border-color: #0d6efd; /* Borda do botão continuar comprando */
+}
+
+body.dark-mode .btn-success {
+    background-color: #198754; /* Cor do botão finalizar compra */
+    border-color: #198754; /* Borda do botão finalizar compra */
 }

@@ -18,7 +18,7 @@ from .views import (
     UserPhoneNumberDelete,
     UserPhoneNumberList,
     UserPhoneNumberUpdate,
-    TermsOfService,
+    LegalInfos,
 )
 
 router = DefaultRouter()
@@ -50,5 +50,5 @@ urlpatterns = [
     path('api/', include(router.urls)),
 
     # ToS URL
-    path('tos/', TermsOfService.as_view(), name='termsofservice'),
+    path('tos/', LegalInfos.as_view(), name='termsofservice'),
 ]
