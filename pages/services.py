@@ -50,27 +50,69 @@ def get_abouts():
 
 
 def get_promotions():
-    file_cache = caches['file_based']
-    promotions = file_cache.get('promotions_list')
+    promotions = cache.get('promotions_list')
 
-    if not promotions:
-        promotions_instance = Promotion.objects.order_by('starts_at', 'created')
+    if promotions is None:
+        # Fetch from the database if the cache is empty
+        promotions_instance = list(Promotion.objects.order_by('starts_at', 'created'))
         serialized_promotions = PromotionSerializer(promotions_instance, many=True).data
-        file_cache.set('promotions_list', serialized_promotions, timeout=settings.CACHE_TIMEOUT)
+        # Set promotions in cache
+        cache.set('promotions_list', serialized_promotions, timeout=settings.CACHE_TIMEOUT)
         promotions = serialized_promotions
 
     return promotions
 
 
-def update_promotion_cache():
+def update_promotion_cache(promotion):
     """
-    Update the promotion cache with the serialized version of the product.
+    Updates the promotion cache
+    :param promotion: Promotion object that will be updated/added
     :return: None
     """
-    file_cache = caches['file_based']
-    file_cache.delete('promotions_list')
+    promotions = cache.get('promotions_list')
 
-    get_promotions()
+    # If the cache is empty, regenerate the promotions list
+    if promotions is None:
+        promotions = get_promotions()
+
+    # Serialize the promotion instance
+    serialized_promotion = PromotionSerializer(promotion).data
+
+    # Check if the promotion already exists in the cached list, and update it
+    updated_promotions = []
+    promotion_found = False
+    for promo in promotions:
+        if promo['id'] == promotion.id:
+            updated_promotions.append(serialized_promotion)  # Update the existing promotion
+            promotion_found = True
+        else:
+            updated_promotions.append(promo)
+
+    if not promotion_found:
+        # If promotion is not found, it means it's a new promotion, so add it
+        updated_promotions.append(serialized_promotion)
+
+    # Update the cache with the modified list
+    cache.set('promotions_list', updated_promotions, timeout=settings.CACHE_TIMEOUT)
+
+
+def remove_promotion_cache(promotion):
+    """
+    Removes the promotion from the cache
+    :param promotion: Promotion object that will be removed
+    :return: None
+    """
+    promotions = cache.get('promotions_list')
+
+    if promotions is None:
+        # If the cache is empty, nothing to remove
+        return
+
+    # Filter out the promotion to be removed
+    updated_promotions = [promo for promo in promotions if promo['id'] != promotion.id]
+
+    # Update the cache with the new list
+    cache.set('promotions_list', updated_promotions, timeout=settings.CACHE_TIMEOUT)
 
 
 def get_user_addresses(user):

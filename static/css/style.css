@@ -9,6 +9,10 @@ section{
     padding:2rem 5%;
 }
 
+.dark-mode section{
+    background-color: #121212 !important;
+}
+
 section:nth-child(even){
     background:#eee;
 }

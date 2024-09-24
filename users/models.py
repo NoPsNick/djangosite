@@ -159,6 +159,10 @@ class Role(StatusModel, TimeStampedModel):
     def __str__(self):
         return f"{self.user.username} - {self.role_type.name} ({self.get_status_display()})"
 
+    class Meta:
+        verbose_name = "cargo"
+        verbose_name_plural = "cargos"
+
 
 def verify_birth_date(birth_date):
     if not birth_date:

@@ -1,5 +1,5 @@
-# about/serializers.py
 from django.core.exceptions import PermissionDenied
+from django.utils import timezone
 
 from rest_framework import serializers
 
@@ -13,10 +13,13 @@ class PromotionSerializer(serializers.ModelSerializer):
     product_name = serializers.SerializerMethodField()
     product_description = serializers.SerializerMethodField()
     product_image = serializers.SerializerMethodField()
+    starts_at = serializers.SerializerMethodField()
+    expires_at = serializers.SerializerMethodField()
 
     class Meta:
         model = Promotion
-        fields = ['starts_at',
+        fields = ['id',
+                  'starts_at',
                   'expires_at',
                   'product_name',
                   'product_description',
@@ -26,6 +29,16 @@ class PromotionSerializer(serializers.ModelSerializer):
                   'original_price',
                   'status'
         ]
+
+    def get_starts_at(self, obj):
+        # Convert to the local time zone before formatting
+        local_start_time = timezone.localtime(obj.starts_at)
+        return local_start_time.strftime('%d/%m/%Y - %H:%M:%S')
+
+    def get_expires_at(self, obj):
+        # Convert to the local time zone before formatting
+        local_expire_time = timezone.localtime(obj.expires_at)
+        return local_expire_time.strftime('%d/%m/%Y - %H:%M:%S')
 
     def get_product_name(self, obj):
         return obj.product.name
@@ -102,11 +115,13 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_date_joined(self, obj):
         if self.check_permission(obj):
-            return obj.date_joined.strftime("%d/%m/%Y") if obj.date_joined else None
+            date_joined = timezone.localtime(obj.date_joined) if obj.date_joined else None
+            return date_joined.strftime("%d/%m/%Y") if date_joined else None
 
     def get_last_login(self, obj):
         if self.check_permission(obj):
-            return obj.last_login.strftime("%d/%m/%Y %H:%M") if obj.last_login else None
+            last_login = timezone.localtime(obj.last_login) if obj.last_login else None
+            return last_login.strftime("%d/%m/%Y - %H:%M:%S") if last_login else None
 
     def get_is_staff(self, obj):
         if self.check_permission(obj):

@@ -47,7 +47,7 @@ class AboutPageView(TemplateView):
         return context
 
 
-class PerfilPageView(TemplateView):
+class ProfilePageView(TemplateView):
     template_name = "profile.html"
 
     def get_context_data(self, user_id, **kwargs):

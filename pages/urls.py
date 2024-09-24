@@ -9,7 +9,7 @@ from .views import (
     PhoneNumberViewSet,
     AboutPageView,
     HomePageView,
-    PerfilPageView,
+    ProfilePageView,
     UserAddressAdd,
     UserAddressDelete,
     UserAddressList,
@@ -32,7 +32,7 @@ urlpatterns = [
     path("", HomePageView.as_view(), name="home"),
     path("sobre/", AboutPageView.as_view(), name="about"),
     path("api/about/", AboutAPIView.as_view(), name="about_api"),
-    path("perfil/<int:user_id>/", login_required(PerfilPageView.as_view()), name="profile"),
+    path("perfil/<int:user_id>/", login_required(ProfilePageView.as_view()), name="profile"),
 
     # User Address URLs
     path("perfil/meusenderecos/", login_required(UserAddressList.as_view()), name="address_list"),

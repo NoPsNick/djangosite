@@ -6,12 +6,12 @@ const body = document.body;
 if (localStorage.getItem('theme') === 'dark') {
     body.classList.add('dark-mode');
     body.classList.remove('light-mode');
-    themeToggle.innerHTML = '<i id="themeIcon" class="bi bi-moon"></i> > ' +
-        '<i id="themeIcon" class="bi bi-sun-fill"></i>';
+    themeToggle.innerHTML = '<i id="themeIcon" class="bi bi-moon-fill"></i> > ' +
+        '<i id="themeIcon" class="bi bi-sun"></i>';
 } else {
     body.classList.add('light-mode');
-    themeToggle.innerHTML = '<i id="themeIcon" class="bi bi-sun-fill"></i> > ' +
-        '<i id="themeIcon" class="bi bi-moon"></i>';
+    themeToggle.innerHTML = '<i id="themeIcon" class="bi bi-sun"></i> > ' +
+        '<i id="themeIcon" class="bi bi-moon-fill"></i>';
 }
 
 // Atualiza o localStorage e alterna o tema ao clicar no botão
@@ -21,11 +21,11 @@ themeToggle.addEventListener('click', () => {
 
     if (body.classList.contains('dark-mode')) {
         localStorage.setItem('theme', 'dark');
-        themeToggle.innerHTML = '<i id="themeIcon" class="bi bi-moon"></i> > ' +
-            '<i id="themeIcon" class="bi bi-sun-fill"></i>';
+        themeToggle.innerHTML = '<i id="themeIcon" class="bi bi-moon-fill"></i> > ' +
+            '<i id="themeIcon" class="bi bi-sun"></i>';
     } else {
         localStorage.setItem('theme', 'light');
-        themeToggle.innerHTML = '<i id="themeIcon" class="bi bi-sun-fill"></i> > ' +
-            '<i id="themeIcon" class="bi bi-moon"></i>';
+        themeToggle.innerHTML = '<i id="themeIcon" class="bi bi-sun"></i> > ' +
+            '<i id="themeIcon" class="bi bi-moon-fill"></i>';
     }
 });

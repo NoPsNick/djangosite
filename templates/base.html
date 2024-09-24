@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 
 {% load static %}
+{% load custom_filters %}
 
 <head>
     <meta charset="utf-8" />
@@ -23,11 +24,19 @@
 <body class="d-flex flex-column min-vh-100">
     <!-- Navbar -->
     {% url 'pages:about' as about_html %}
+    {% url_startswith request.path about_html as is_about_active %}
     {% url 'pages:profile' user_id=request.user.id as perfil_html %}
+    {% url_startswith request.path perfil_html user_id=request.user.id as is_perfil_active %}
     {% url 'products:list' as products_html %}
+    {% url_startswith request.path products_html as is_products_active %}
     {% url 'cart:detail' as cart_html %}
+    {% url_startswith request.path cart_html as is_cart_active %}
     {% url 'account_login' as login_html %}
+    {% url_startswith request.path login_html as is_login_active %}
     {% url 'account_signup' as signup_html %}
+    {% url_startswith request.path signup_html as is_signup_active %}
+    {% url 'account_logout' as logout_html %}
+    {% url_startswith request.path logout_html as is_logout_active %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
         <div class="container">
             <a class="navbar-brand" href="{% url 'pages:home' %}">
@@ -39,57 +48,55 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                  <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link {% if request.path == about_html %}active{% endif %}" href="{{ about_html }}">
+                        <a class="nav-link {% if is_about_active %}active{% endif %}" href="{{ about_html }}">
                             Sobre Nós <i class="bi bi-shop"></i>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <button id="theme-toggle" class="btn btn-light">
-                            <i id="themeIcon" class="bi bi-sun-fill"></i> Modo Escuro
-                        </button>
+                        <a href="{{ cart_html }}" type="button" role="button"
+                            class="nav-link {% if is_cart_active %}active{% endif %}">
+                            Carrinho
+                            <i class="bi bi-cart4">
+                                <span class="badge translate-middle position-absolute bg-light text-dark" style="font-size: 0.75rem; padding: 0.25em 0.4em;">
+                                  {{ cart_total_quantity }}
+                                </span>
+                            </i>
+                        </a>
                     </li>
                     {% with user=request.user %}
                     {% if user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link {% if request.path == products_html %}active{% endif %}" href="{{ products_html }}">
+                            <a class="nav-link {% if is_products_active %}active{% endif %}" href="{{ products_html }}">
                                 Produtos <i class="bi bi-bag-plus"></i>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{{ cart_html }}" type="button" role="button"
-                                class="nav-link {% if request.path == cart_html %}active{% endif %}">
-                                Carrinho
-                                <i class="bi bi-cart4">
-                                    <span class="badge translate-middle position-absolute bg-light text-dark" style="font-size: 0.75rem; padding: 0.25em 0.4em;">
-                                      {{ cart_total_quantity }}
-                                    </span>
-                                </i>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if request.path == perfil_html %}active{% endif %}" href="{{ perfil_html }}">
+                            <a class="nav-link {% if is_perfil_active %}active{% endif %}" href="{{ perfil_html }}">
                                 {{ user.username }} <i class="bi bi-file-person"></i>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-danger" href="{% url 'account_logout' %}">
+                            <a class="nav-link text-danger {% if is_logout_active %}active{% endif %}" href="{{ logout_html }}">
                                 Sair <i class="bi bi-x-circle"></i>
                             </a>
                         </li>
                         {% else %}
                         <li class="nav-item">
-                            <a class="nav-link {% if request.path == login_html %}active{% endif %}" href="{{ login_html }}">
+                            <a class="nav-link {% if is_login_active %}active{% endif %}" href="{{ login_html }}">
                                 Login <i class="bi bi-door-open-fill"></i>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if request.path == signup_html %}active{% endif %}" href="{{ signup_html }}">
+                            <a class="nav-link {% if is_signup_active %}active{% endif %}" href="{{ signup_html }}">
                                 Registrar <i class="bi bi-box-arrow-in-right"></i>
                             </a>
                         </li>
                     {% endif %}
                  {% endwith %}
                 </ul>
+                <button id="theme-toggle" class="btn btn-light">
+                    <i id="themeIcon" class="bi bi-sun"></i> Modo Escuro
+                </button>
             </div>
         </div>
     </nav>

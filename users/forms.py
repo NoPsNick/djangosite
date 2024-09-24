@@ -15,7 +15,7 @@ class UserSignupForm(SignupForm):
     last_name = forms.CharField(max_length=30, label='Último Nome')
 
     birth_date = forms.DateField(
-        widget=forms.SelectDateWidget(years=range(1900, date.today().year + 1)),
+        widget=forms.DateInput(attrs={'type': 'date'}),  # Usando um input de data
         validators=[verify_birth_date]
     )
 
