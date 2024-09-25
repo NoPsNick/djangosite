@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
-from .models import Product, Category, Promotion
+from .models import Product, Category, Promotion, Stock
 from .services import update_product_cache, delete_product_cache, update_category_cache, delete_category_cache
 from pages.services import update_promotion_cache, remove_promotion_cache
 
@@ -15,6 +15,16 @@ def product_post_save(sender, instance, **kwargs):
 @receiver(post_delete, sender=Product)
 def product_post_delete(sender, instance, **kwargs):
     delete_product_cache(sender, instance)
+
+
+@receiver(post_save, sender=Stock)
+def stock_post_save(sender, instance, **kwargs):
+    update_product_cache(sender, instance.product)
+
+
+@receiver(post_delete, sender=Stock)
+def stock_post_delete(sender, instance, **kwargs):
+    delete_product_cache(sender, instance.product)
 
 
 # Register signals for Category

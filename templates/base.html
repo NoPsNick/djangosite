@@ -23,6 +23,7 @@
 
 <body class="d-flex flex-column min-vh-100">
     <!-- Navbar -->
+    {% url 'pages:home' as home_html %}
     {% url 'pages:about' as about_html %}
     {% url_startswith request.path about_html as is_about_active %}
     {% url 'pages:profile' user_id=request.user.id as perfil_html %}
@@ -39,7 +40,7 @@
     {% url_startswith request.path logout_html as is_logout_active %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'pages:home' %}">
+            <a class="navbar-brand" href="{{ home_html }}">
                 <span class="font-weight-bold h4">Loja Python <i class="bi bi-newspaper"></i></span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
