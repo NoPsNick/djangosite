@@ -8,27 +8,31 @@ from .models import About
 from .serializers import UserSerializer, PromotionSerializer, AboutSerializer
 
 
-def get_user_data(user, target_userid):
-    if not user or not user.is_authenticated:
+def get_user_data(current_user, target_user_id):
+    """
+    Retrieves user data either from the cache or the database, ensuring that
+    permissions are checked, and only authorized users can access the data.
+    """
+    if not current_user or not current_user.is_authenticated:
         raise ValueError("User is not authenticated")
 
-    # Attempt to fetch user instance to check if it's active
+    # Try to fetch the target user object
     try:
-        target_user = User.objects.get(id=target_userid)
+        target_user = User.objects.get(id=target_user_id)
     except User.DoesNotExist:
-        raise ObjectDoesNotExist("User not found")
+        raise ObjectDoesNotExist(f"User with ID {target_user_id} not found.")
 
-    # Check if the target user is active, allow staff to view inactive profiles
-    if not target_user.is_active and not user.is_staff:
-        raise PermissionDenied("User is not active")
+    # Allow only staff to view inactive users
+    if not target_user.is_active and not current_user.is_staff:
+        raise PermissionDenied("The requested profile is inactive.")
 
-    # Build the cache key based on the target user's id
-    cache_key = f"user_{target_userid}_profile"
+    # Cache key for user profile data
+    cache_key = f"user_{target_user_id}_profile"
     user_data = cache.get(cache_key)
 
     if user_data is None:
-        # Serialize and cache the target user's data
-        serializer = UserSerializer(target_user, context={'request': user})
+        # If data is not in the cache, serialize and cache it
+        serializer = UserSerializer(target_user, context={'request': current_user})
         user_data = serializer.data
         cache.set(cache_key, user_data, timeout=settings.CACHE_TIMEOUT)
 

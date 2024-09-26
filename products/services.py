@@ -1,147 +1,184 @@
 from django.conf import settings
 from django.core.cache import cache
+from django.db.models import Prefetch
 
-from .serializers import ProductSerializer, CategorySerializer
+from .serializers import ProductSerializer, CategorySerializer, StockSerializer
 from .models import Category, Product
 
 PRODUCT_SLUGS_KEY = 'product_slugs'
 CATEGORY_SLUGS_KEY = 'category_slugs'
 
 
+# Helper function to cache an object with a consistent timeout
+def set_cache(cache_key, data):
+    cache.set(cache_key, data, timeout=settings.CACHE_TIMEOUT)
+
+
+# Function to retrieve or set cache for a product
 def get_product_from_cache(slug):
     cache_key = f'product_{slug}'
     product_data = cache.get(cache_key)
 
     if not product_data:
-        # If not cached, retrieve from DB and cache it
         try:
-            product = Product.objects.get(slug=slug)
+            product = Product.objects.prefetch_related(
+                Prefetch('estoque')  # Prefetch related stock to minimize queries
+            ).get(slug=slug)
+
+            # Serialize and cache the product
             product_data = ProductSerializer(product).data
-            cache.set(cache_key, product_data, timeout=settings.CACHE_TIMEOUT)
+            set_cache(cache_key, product_data)
+
+            # Cache stock information if it exists
+            if product.estoque:
+                set_cache(f'stock_{slug}', StockSerializer(product.estoque).data)
+
         except Product.DoesNotExist:
             return None
+
     return product_data
 
 
+# Function to retrieve or set cache for stock
+def get_stock_from_cache(slug):
+    stock_cache_key = f'stock_{slug}'
+    stock_data = cache.get(stock_cache_key)
+
+    if stock_data is None:
+        try:
+            product = Product.objects.prefetch_related('estoque').get(slug=slug)
+            if product.estoque:
+                stock_data = StockSerializer(product.estoque).data
+                set_cache(stock_cache_key, stock_data)
+        except Product.DoesNotExist:
+            return False
+
+    return stock_data
+
+
+# Function to retrieve or set cache for a category
 def get_category_from_cache(slug):
     cache_key = f'category_{slug}'
     category_data = cache.get(cache_key)
 
     if not category_data:
-        # If not cached, retrieve from DB and cache it
         try:
             category = Category.objects.get(slug=slug)
             category_data = CategorySerializer(category).data
-            cache.set(cache_key, category_data, timeout=settings.CACHE_TIMEOUT)
+            set_cache(cache_key, category_data)
         except Category.DoesNotExist:
             return None
+
     return category_data
 
 
+# Function to cache the list of products and their stock information
 def cache_product_list(products):
     product_slugs = []
+
     for product in products:
         cache_key = f'product_{product.slug}'
         product_data = ProductSerializer(product).data
-        cache.set(cache_key, product_data, timeout=settings.CACHE_TIMEOUT)
+        set_cache(cache_key, product_data)
         product_slugs.append(product.slug)
-    # Cache the product slugs list
-    cache.set(PRODUCT_SLUGS_KEY, product_slugs, timeout=settings.CACHE_TIMEOUT)
+
+        if product.estoque:
+            set_cache(f'stock_{product.slug}', StockSerializer(product.estoque).data)
+
+    # Cache the list of product slugs
+    set_cache(PRODUCT_SLUGS_KEY, product_slugs)
 
 
+# Function to cache the list of categories
 def cache_category_list(categories):
     category_slugs = []
+
     for category in categories:
         cache_key = f'category_{category.slug}'
         category_data = CategorySerializer(category).data
-        cache.set(cache_key, category_data, timeout=settings.CACHE_TIMEOUT)
+        set_cache(cache_key, category_data)
         category_slugs.append(category.slug)
-    # Cache the category slugs list
-    cache.set(CATEGORY_SLUGS_KEY, category_slugs, timeout=settings.CACHE_TIMEOUT)
+
+    # Cache the list of category slugs
+    set_cache(CATEGORY_SLUGS_KEY, category_slugs)
 
 
+# Retrieve or cache product slugs
 def get_cached_product_slugs():
     product_slugs = cache.get(PRODUCT_SLUGS_KEY)
 
-    if not product_slugs:
-        products = list(Product.objects.all())
+    if product_slugs is None:
+        products = Product.objects.all()
         cache_product_list(products)
         product_slugs = [product.slug for product in products]
 
     return product_slugs
 
 
+# Retrieve or cache category slugs
 def get_cached_category_slugs():
     category_slugs = cache.get(CATEGORY_SLUGS_KEY)
 
-    if not category_slugs:
-        categories = list(Category.objects.all())
+    if category_slugs is None:
+        categories = Category.objects.all()
         cache_category_list(categories)
         category_slugs = [category.slug for category in categories]
 
     return category_slugs
 
 
+# Update the product cache (called from both Product and Stock models)
 def update_product_cache(sender, instance, **kwargs):
-    """
-    Update the product cache with the serialized version of the product.
-    This method can be called from both the Product and Stock models.
-    """
-    cache_key = f'product_{instance.slug}'
+    product_cache_key = f'product_{instance.slug}'
+    stock_cache_key = f'stock_{instance.slug}'
 
-    # Serialize the product instance
-    serialized_product = ProductSerializer(instance).data
+    # Cache serialized product and stock
+    set_cache(product_cache_key, ProductSerializer(instance).data)
 
-    # Cache the serialized product data
-    cache.set(cache_key, serialized_product, timeout=settings.CACHE_TIMEOUT)  # Cache updated product
+    if instance.estoque:
+        set_cache(stock_cache_key, StockSerializer(instance.estoque).data)
 
-    # Update the cached list of product slugs
+    # Update the cached product slugs list
     product_slugs = get_cached_product_slugs()
     if instance.slug not in product_slugs:
         product_slugs.append(instance.slug)
-    cache.set(PRODUCT_SLUGS_KEY, product_slugs, timeout=settings.CACHE_TIMEOUT)
+    set_cache(PRODUCT_SLUGS_KEY, product_slugs)
 
 
+# Delete product cache when the product or stock is deleted
 def delete_product_cache(sender, instance, **kwargs):
-    """
-    Remove the product from the cache when it is deleted.
-    """
-    cache_key = f'product_{instance.slug}'
-    cache.delete(cache_key)  # Remove product from cache
+    product_cache_key = f'product_{instance.slug}'
+    stock_cache_key = f'stock_{instance.slug}'
 
-    # Update the cached list of product slugs
+    cache.delete(product_cache_key)
+    cache.delete(stock_cache_key)
+
+    # Update the cached product slugs list
     product_slugs = get_cached_product_slugs()
     if instance.slug in product_slugs:
         product_slugs.remove(instance.slug)
-    cache.set(PRODUCT_SLUGS_KEY, product_slugs, timeout=settings.CACHE_TIMEOUT)
+    set_cache(PRODUCT_SLUGS_KEY, product_slugs)
 
 
+# Update the category cache
 def update_category_cache(sender, instance, **kwargs):
-    """
-    Update the category cache and the category slug list.
-    """
-    cache_key = f'category_{instance.slug}'
+    category_cache_key = f'category_{instance.slug}'
+    set_cache(category_cache_key, CategorySerializer(instance).data)
 
-    serialized_category = CategorySerializer(instance).data
-
-    cache.set(cache_key, serialized_category, timeout=settings.CACHE_TIMEOUT)  # Cache updated category
-
-    # Update the cached list of category slugs
+    # Update the cached category slugs list
     category_slugs = get_cached_category_slugs()
     if instance.slug not in category_slugs:
         category_slugs.append(instance.slug)
-    cache.set(CATEGORY_SLUGS_KEY, category_slugs, timeout=settings.CACHE_TIMEOUT)
+    set_cache(CATEGORY_SLUGS_KEY, category_slugs)
 
 
+# Delete category cache when the category is deleted
 def delete_category_cache(sender, instance, **kwargs):
-    """
-    Remove the category from the cache when it is deleted.
-    """
-    cache_key = f'category_{instance.slug}'
-    cache.delete(cache_key)  # Remove category from cache
+    category_cache_key = f'category_{instance.slug}'
+    cache.delete(category_cache_key)
 
-    # Update the cached list of category slugs
+    # Update the cached category slugs list
     category_slugs = get_cached_category_slugs()
     if instance.slug in category_slugs:
         category_slugs.remove(instance.slug)
-    cache.set(CATEGORY_SLUGS_KEY, category_slugs, timeout=settings.CACHE_TIMEOUT)
+    set_cache(CATEGORY_SLUGS_KEY, category_slugs)

@@ -3,7 +3,7 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 
-from model_utils.models import TimeStampedModel, StatusModel, SoftDeletableModel
+from model_utils.models import TimeStampedModel, StatusModel
 from model_utils import Choices
 
 from decimal import Decimal
@@ -27,8 +27,8 @@ class Order(TimeStampedModel, StatusModel):
         (Cancelado, "Pedido cancelado"),
     )
 
-    customer = models.ForeignKey(User, on_delete=models.PROTECT)
-    is_paid = models.BooleanField(default=False)
+    customer = models.ForeignKey(User, related_name="pedidos", verbose_name="Cliente", on_delete=models.PROTECT)
+    is_paid = models.BooleanField(verbose_name="Foi pago?", default=False)
 
     class Meta:
         verbose_name = "pedido"
@@ -41,9 +41,10 @@ class Order(TimeStampedModel, StatusModel):
         return sum(item.get_total_price() for item in self.items.all())  # Sum the total for all items
 
 class Item(models.Model):
-    order = models.ForeignKey(Order, related_name="items", on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, related_name="order_items", on_delete=models.CASCADE)
-    promotion_code = models.ForeignKey(PromotionCode, related_name="used_code", on_delete=models.PROTECT, blank=True, null=True)
+    order = models.ForeignKey(Order, verbose_name="Pedido", related_name="items", on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, verbose_name="Produto", related_name="order_items", on_delete=models.CASCADE)
+    promotion_code = models.ForeignKey(PromotionCode, verbose_name="Código promocional", related_name="used_code",
+                                       on_delete=models.SET_NULL, blank=True, null=True)
     quantity = models.PositiveIntegerField(
         validators=[
             MinValueValidator(1),

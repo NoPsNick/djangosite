@@ -50,21 +50,22 @@ class AboutPageView(TemplateView):
 class ProfilePageView(TemplateView):
     template_name = "profile.html"
 
-    def get_context_data(self, user_id, **kwargs):
+    def get_context_data(self, **kwargs):
+        user = self.request.user  # Use the middleware to check the authenticated user
+        target_user_id = kwargs.get('user_id')  # Extract the target user's id from kwargs
         context = super().get_context_data(**kwargs)
-        user = self.request.user
 
+        # Ensure the user is authenticated
         if not user.is_authenticated:
             raise PermissionDenied("You must be logged in to view this profile.")
 
-        # Check if the user is trying to access their own profile
-        if user.id != user_id and not user.is_staff:
+        # Allow only the profile owner or staff members to view the profile
+        if user.id != target_user_id and not user.is_staff:
             raise PermissionDenied("You do not have permission to view this profile.")
 
-        # Fetch user data from cache or database
-        user_data = get_user_data(user, user_id)
+        # Fetch the profile data using the helper function (from cache or database)
+        context['user_data'] = get_user_data(user, target_user_id)
 
-        context['user_data'] = user_data
         return context
 
 

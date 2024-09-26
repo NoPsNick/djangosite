@@ -66,7 +66,8 @@ INSTALLED_APPS = [
     "legaldocs.apps.LegaldocsConfig",
     "products.apps.ProductsConfig",
     "cart.apps.CartConfig",
-    'orders.apps.OrderConfig'
+    'orders.apps.OrderConfig',
+    'payments.apps.PaymentsConfig'
 ]
 
 MIDDLEWARE = [
