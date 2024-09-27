@@ -6,25 +6,23 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from model_utils.models import TimeStampedModel, StatusModel
 from model_utils import Choices
 
-from decimal import Decimal
-
 from products.models import Product, PromotionCode
 
 User = get_user_model()
 
 class Order(TimeStampedModel, StatusModel):
-    Cancelado = "Cancelado"
-    Caminho = "A caminho"
-    Aguardando = "Aguardando pagamento"
-    Finalizado = "Finalizado"
-    Vender = "Vender"
-    Cancelar = "Cancelar Venda"
+    Cancelled = "Cancelado"
+    Way = "A caminho"
+    Waiting_payment = "Aguardando pagamento"
+    Finalized = "Finalizado"
+    Sell = "Vender"
+    Restore = "Cancelar Venda"
 
     STATUS = Choices(
-        (Caminho, "A caminho"),
-        (Aguardando, "Aguardando pagamento"),
-        (Finalizado, "Finalizado"),
-        (Cancelado, "Pedido cancelado"),
+        (Way, "A caminho"),
+        (Waiting_payment, "Aguardando pagamento"),
+        (Finalized, "Finalizado"),
+        (Cancelled, "Pedido cancelado"),
     )
 
     customer = models.ForeignKey(User, related_name="pedidos", verbose_name="Cliente", on_delete=models.PROTECT)
@@ -43,8 +41,6 @@ class Order(TimeStampedModel, StatusModel):
 class Item(models.Model):
     order = models.ForeignKey(Order, verbose_name="Pedido", related_name="items", on_delete=models.CASCADE)
     product = models.ForeignKey(Product, verbose_name="Produto", related_name="order_items", on_delete=models.CASCADE)
-    promotion_code = models.ForeignKey(PromotionCode, verbose_name="Código promocional", related_name="used_code",
-                                       on_delete=models.SET_NULL, blank=True, null=True)
     quantity = models.PositiveIntegerField(
         validators=[
             MinValueValidator(1),
@@ -60,8 +56,5 @@ class Item(models.Model):
         return f"Item {self.product.name} (Quantity: {self.quantity})"
 
     def get_total_price(self):
-        if not self.promotion_code:
-            return self.product.price * self.quantity
-        else:
-            return Decimal(self.promotion_code.apply_discount(product=self.product, category=self.product.category
-                                                          )) * self.quantity
+        return self.product.price * self.quantity
+

@@ -12,6 +12,7 @@ def create_order(user, items_data):
         user: The user creating the order.
         items_data: List of items to be added to the order (slug, quantity).
     """
+
     with transaction.atomic():
         # Create the order
         order = Order.objects.create(user=user)
@@ -31,28 +32,13 @@ def create_order(user, items_data):
                 if stock['units'] <= quantity:
                     raise ValidationError(f"Not enough stock for product {product['name']}.")
 
-            # Apply the promotion code if provided
-            # if promo_code:
-            #     promotion_code: PromotionCode = PromotionCode.objects.get(code=promo_code)
-            #     promotion_code.is_valid(user=user)  # Validate the promotion code
-            #     # Increment the usage of the promotion code
-            #     promotion_code.increment_usage(user=user)
-            #
-            #     Item.objects.create(
-            #         order=order,
-            #         product=product,
-            #         quantity=quantity,
-            #         promotion_code=promotion_code,
-            #     )
-            # # Add the item to the order without a promotion code
-
             Item.objects.create(
                 order=order,
                 product=product,
                 quantity=quantity
             )
 
-        order.status = Order.Aguardando
+        order.status = Order.Waiting_payment
         order.save()
 
     return order

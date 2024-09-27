@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_bootstrap5',
     'debug_toolbar',
+    # 'django_q',
     # Meus Apps
     'users.apps.UsersConfig',
     'pages.apps.PagesConfig',
@@ -361,3 +362,16 @@ CACHE_KEY_PRIVACY_POLICY = 'privacy_policies'
 CACHE_KEY_RETURN_POLICY = 'return_policies'
 
 HIGH_TIME_CACHE_TIMEOUT = 60 * 60 * 24 * 100 # 100 days
+
+# Q configuration
+
+# Q_CLUSTER = {
+#     'name': 'DjangoQCluster',
+#     'workers': 4,  # Number of worker processes
+#     'recycle': 500,  # Restart a worker after this many tasks
+#     'timeout': 60,  # Maximum time (in seconds) to wait for a task to complete
+#     'ack_failures': True,  # Keep track of task failures
+#     'retry': 120,  # Retry a failed task after this time (seconds)
+#     'max_attempts': 5,  # Maximum number of retries
+#     'orm': 'default'  # Use Django ORM as the broker
+# }

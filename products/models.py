@@ -50,10 +50,29 @@ class Product(TimeStampedModel):
     def get_absolute_url(self):
         return reverse("products:detail", kwargs={"slug": self.slug})
 
+    def check_not_updated_promotions(self):
+        """Check if any active promotions are valid and raise a ValidationError if not."""
+        now = timezone.now()
+        outdated_promotions = []
+
+        for promotion in self.promotions.filter(active=True):
+            # Check if the promotion is currently valid
+            if not (promotion.starts_at <= now < promotion.expires_at):
+                outdated_promotions.append(promotion)
+                promotion.save()
+
+        if outdated_promotions:
+            # Raise an error if there are outdated promotions
+            raise ValidationError(
+                f"The following promotions are outdated: {', '.join([promo.name for promo in outdated_promotions])}"
+            )
+
+        return True  # All promotions are valid, or no promotion was found
+
 
 class Stock(TimeStampedModel):
     product = models.OneToOneField(
-        Product, related_name="estoque", on_delete=models.CASCADE, unique=True
+        Product, related_name="estoque", on_delete=models.CASCADE
     )
     units = models.PositiveIntegerField(
         default=0,
@@ -83,12 +102,12 @@ class Stock(TimeStampedModel):
         # Update product cache since availability changed
         update_product_cache(None, self.product)
 
-    def can_sell(self, quantidade=1):
+    def can_sell(self, quantity=1):
         """Check if there is enough stock to sell."""
-        return self.units >= quantidade
+        return self.units >= quantity
 
     @transaction.atomic
-    def sell(self, quantidade=1):
+    def sell(self, quantity=1):
         from .services import update_product_cache
         """
         Safely reduce stock and increase units_sold using "transaction.atomic"
@@ -96,12 +115,12 @@ class Stock(TimeStampedModel):
         """
         stock = Stock.objects.select_for_update().get(id=self.id)
 
-        if not stock.can_sell(quantidade):
+        if not stock.can_sell(quantity):
             raise ValidationError("Not enough stock available.")
 
         # Update the stock and units sold atomically
-        stock.units = F('units') - quantidade
-        stock.units_sold = F('units_sold') + quantidade
+        stock.units = F('units') - quantity
+        stock.units_sold = F('units_sold') + quantity
         stock.save(update_fields=['units', 'units_sold'])
 
         # Only update cache after transaction is committed
@@ -110,7 +129,7 @@ class Stock(TimeStampedModel):
         return True
 
     @transaction.atomic
-    def restore(self, quantidade=1):
+    def restore(self, quantity=1):
         from .services import update_product_cache
         """
         Safely restore stock and reduce units_sold using "transaction.atomic"
@@ -119,8 +138,8 @@ class Stock(TimeStampedModel):
         stock = Stock.objects.select_for_update().get(id=self.id)
 
         # Restore units and adjust units_sold atomically
-        stock.units = F('units') + quantidade
-        stock.units_sold = F('units_sold') - quantidade
+        stock.units = F('units') + quantity
+        stock.units_sold = F('units_sold') - quantity
         stock.save(update_fields=['units', 'units_sold'])
 
         # Only update cache after transaction is committed
@@ -140,44 +159,61 @@ class Promotion(StatusModel, TimeStampedModel):
         (PENDENTE, "Pendente"),
     ]
 
+    name = models.CharField("Nome", max_length=255, unique=True)
+    description = models.TextField("Descrição", max_length=255, blank=True, null=True)
     starts_at = models.DateTimeField("Data do começo")
     expires_at = models.DateTimeField("Data do fim")
-    product = models.ForeignKey(Product, verbose_name="Produto", related_name="promotion", on_delete=models.CASCADE,
+    product = models.ForeignKey(Product, verbose_name="Produto", related_name="promotions", on_delete=models.CASCADE,
                                 to_field='slug')
     status = models.CharField("Estado", max_length=10, choices=STATUS_CHOICES, default=EXPIRADO)
     changed_price = models.DecimalField("Preço em promoção", max_digits=10, decimal_places=2)
     original_price = models.DecimalField("Preço original", max_digits=10, decimal_places=2, blank=True,
                                          null=True)
 
+
     def clean(self):
+        super().clean()
+
+        # Ensure original price matches the product's current price
         if not self.original_price:
             self.original_price = self.product.price
 
-            if self.original_price != self.product.price:
-                raise ValidationError("Cannot create a promotion that the original price is different "
-                                      "from the product price.")
+        if self.original_price != self.product.price:
+            raise ValidationError("Original price must match the product price.")
 
-        if not self.product.is_available:
-            raise ValidationError("Cannot create a promotion for an unavailable product.")
+        # Ensure there is no overlap in the promotion time
+        conflicting_promotions = Promotion.objects.filter(
+            product=self.product,
+            status__in=[self.ATIVO, self.PENDENTE],  # Check active or pending promotions
+            starts_at__lt=self.expires_at,
+            expires_at__gt=self.starts_at
+        ).exclude(pk=self.pk)  # Exclude current promotion if updating
 
-        if self.original_price < self.changed_price:
-            raise ValidationError("Cannot create a promotion that the changed price is higher than the original"
-                                  " price.")
+        if conflicting_promotions.exists():
+            raise ValidationError("There is an overlapping promotion with this time period.")
+
+        # Ensure only one promotion can be active at a time
+        if self.status == self.ATIVO:
+            active_promotion = Promotion.objects.filter(
+                product=self.product,
+                status=self.ATIVO
+            ).exclude(pk=self.pk)
+
+            if active_promotion.exists():
+                raise ValidationError("There is already an active promotion for this product.")
 
     def save(self, *args, **kwargs):
-        if not self.original_price:
-            self.original_price = self.product.price
-
         now = timezone.now()
+
+        # Update status based on current time
         if self.expires_at and now > self.expires_at:
             self.status = self.EXPIRADO
-            # Revert product price to original price if the promotion has expired
-            self.product.price = self.original_price
+            self.product.price = self.original_price  # Revert product price if promotion has expired
             self.product.save(update_fields=['price'])
 
         elif self.starts_at and now >= self.starts_at:
             self.status = self.ATIVO
-            self.product.price = self.changed_price
+            self.product.price = self.changed_price  # Set the promotion price
             self.product.save(update_fields=['price'])
 
         else:
@@ -195,6 +231,9 @@ class Promotion(StatusModel, TimeStampedModel):
 
 
 class PromotionCode(TimeStampedModel):
+    name = models.CharField('Nome', max_length=255, unique=True)
+    description = models.TextField('Descrição', max_length=255, blank=True, null=True)
+
     user = models.ForeignKey(
         User, verbose_name="Usuário", on_delete=models.PROTECT, related_name='promotion_codes',
         blank=True, null=True
@@ -252,8 +291,8 @@ class PromotionCode(TimeStampedModel):
 
         # Check the per-user usage limit
         if user:
-            user_code_usage = PromotionCodeUsage.objects.filter(user=user, promotion_code=self).count()
-            if user_code_usage.exists() and user_code_usage >= self.user_usage_limit:
+            user_code_usage = PromotionCodeUsage.objects.get_or_create(user=user, promotion_code=self)
+            if user_code_usage.user_usage_count >= self.user_usage_limit:
                 raise ValidationError(f"This promotion code has reached its usage limit for user {user.username}.")
 
         return True
@@ -262,6 +301,8 @@ class PromotionCode(TimeStampedModel):
         """
         Apply the discount to a product. Returns the discounted price.
         """
+        if not self.product and not self.category:
+            raise ValidationError("This code is not applicable to any product or category.")
         # Check if the code is applicable to the product or category
         if self.product and self.product != product:
             raise ValidationError("This promotion code cannot be used for this product.")
@@ -292,19 +333,36 @@ class PromotionCode(TimeStampedModel):
 
         # Track usage for the user
         if user:
-            PromotionCodeUsage.objects.create(user=user, promotion_code=self)
+            promotion_code_usage = PromotionCodeUsage.objects.get_or_create(user=user, promotion_code=self)
+            promotion_code_usage.user_usage_count += 1
+
+    def restore_usage(self, user=None):
+        """
+        Restore the usage count of the promotion code.
+        :param user: Who did use the code
+        :return: None
+        """
+        if user:
+            try:
+                promotion_code_usage = PromotionCodeUsage.objects.get(user=user, promotion_code=self)
+                promotion_code_usage.user_usage_count -= 1
+                promotion_code_usage.save()
+            except PromotionCodeUsage.DoesNotExist:
+                raise ValidationError("No usage to restore for this user.")
 
 
-class PromotionCodeUsage(models.Model):
+class PromotionCodeUsage(TimeStampedModel):
     """
     Tracks how many times a specific user has used a promotion code.
     """
     user = models.ForeignKey(User, verbose_name="Usuário", on_delete=models.PROTECT)
     promotion_code = models.ForeignKey(PromotionCode, verbose_name="Código Promocional", on_delete=models.PROTECT)
-    used_at = models.DateTimeField("Usado em", auto_now_add=True)
+    user_usage_count = models.PositiveIntegerField("Contagem de uso por usuário", default=0)
 
     class Meta:
-        unique_together = ('user', 'promotion_code')
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'promotion_code'], name='unique_payment_promotion_code')
+        ]
         verbose_name = "Uso do Código Promocional"
         verbose_name_plural = "Usos de Códigos Promocionais"
 
