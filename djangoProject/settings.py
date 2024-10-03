@@ -85,8 +85,8 @@ MIDDLEWARE = [
     "debug_toolbar.middleware.DebugToolbarMiddleware",
     # MEUS MIDDLEWARES
     'pages.middleware.GeneralRateLimitMiddleware',
-    'users.middleware.log_user_actions.LogUserActionsMiddleware',
-    'users.middleware.cached_user.CachedAuthenticationMiddleware'
+    'users.middlewares.log_user_actions.LogUserActionsMiddleware',
+    'users.middlewares.cached_user.CachedAuthenticationMiddleware'
 ]
 
 GENERAL_RATE_LIMIT_TIME = 5  # Authenticated users: 5 seconds between requests

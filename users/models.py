@@ -172,22 +172,14 @@ def verify_birth_date(birth_date):
         age = today.year - birth_date.year - (
             (today.month, today.day) < (birth_date.month, birth_date.day)
         )
-        if age < 18:
-            raise ValidationError("Usuário precisa ter 18 anos ou mais.")
+        if age < 13:
+            raise ValidationError("Você precisa ter 13 anos ou mais.")
 
 
 class User(AbstractUser):
-    CPF, CNPJ = "CPF", "CNPJ"
-
-    doctype_choices = (
-        (CPF, "CPF"),
-        (CNPJ, "CNPJ")
-    )
 
     role = models.OneToOneField(Role, verbose_name="Cargo", related_name="role", default=None, null=True, blank=True,
                                 on_delete=models.SET_NULL)
-    doc_type = models.CharField("Tipo do Documento", max_length=4, choices=doctype_choices)
-    doc_number = models.CharField("Número do Documento", max_length=250)
     address = models.OneToOneField(Address, verbose_name="Endereço", related_name="endereco",
                                    on_delete=models.SET_NULL, null=True, blank=True)
     phone_number = models.OneToOneField(PhoneNumber, verbose_name="Telefone", related_name="telefone",
@@ -218,14 +210,14 @@ class User(AbstractUser):
         if addresses:
             num_addresses = len(addresses)
             return num_addresses < getattr(settings, 'MAX_ADDRESS_PER_USER', 2)
-        else: return True
+        return True
 
     def verify_phone_number(self):
         phone_numbers = PhoneNumber.objects.get_user_phone_numbers(self)
         if phone_numbers:
             num_phone_numbers = len(phone_numbers)
             return num_phone_numbers < getattr(settings, 'MAX_PHONE_NUMBER_PER_USER', 2)
-        else: return True
+        return True
 
     class Meta:
         verbose_name = "usuário"

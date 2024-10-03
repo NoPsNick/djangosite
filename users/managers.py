@@ -14,23 +14,17 @@ class PhoneNumberManager(models.Manager):
 
     def get_user_phone_numbers(self, user):
         from pages.serializers import PhoneNumberSerializer
-        cache_key = f"user_{user.id}_phone_numbers"
+        cache_key = f"user_{user.id}_phone_numbers_list"
         phone_numbers = cache.get(cache_key)
 
         if phone_numbers is None:
-            # Only fetch phone_numbers belonging to the specified user
-            phone_numbers_queryset = self.filter(user=user).order_by('selected', 'created')
-            if phone_numbers_queryset.exists():
-                sorted_numbers = sorted(
-                    phone_numbers_queryset,
-                    key=lambda x: (-x.selected, -x.created.timestamp() if x.created else 0)
-                )
-                serializer = PhoneNumberSerializer(sorted_numbers, many=True)
-                phone_numbers = serializer.data
-                cache.set(cache_key, phone_numbers, timeout=settings.CACHE_TIMEOUT)
+            # Only fetch phone numbers belonging to the specified user
+            phone_numbers_queryset = self.filter(user=user).order_by('-selected', '-created')
+            serializer = PhoneNumberSerializer(phone_numbers_queryset, many=True)
+            phone_numbers = serializer.data
+            cache.set(cache_key, phone_numbers, timeout=settings.CACHE_TIMEOUT)
 
         return phone_numbers
-
 
 
 class AddressManager(models.Manager):
@@ -42,35 +36,29 @@ class AddressManager(models.Manager):
 
     def get_user_addresses(self, user):
         from pages.serializers import AddressSerializer
-        cache_key = f"user_{user.id}_addresses"
+        cache_key = f"user_{user.id}_addresses_list"
         addresses = cache.get(cache_key)
 
         if addresses is None:
             # Only fetch addresses belonging to the specified user
-            addresses_queryset = self.filter(user=user).order_by('selected', 'created')
-            if addresses_queryset.exists():
-                sorted_addresses = sorted(
-                    addresses_queryset,
-                    key=lambda x: (-x.selected, -x.created.timestamp() if x.created else 0)
-                )
-                serializer = AddressSerializer(sorted_addresses, many=True)
-                addresses = serializer.data
-                cache.set(cache_key, addresses, timeout=settings.CACHE_TIMEOUT)
+            addresses_queryset = self.filter(user=user).order_by('-selected', '-created')
+            serializer = AddressSerializer(addresses_queryset, many=True)
+            addresses = serializer.data
+            cache.set(cache_key, addresses, timeout=settings.CACHE_TIMEOUT)
 
         return addresses
 
 
 class CachedUserManager(UserManager):
-    CACHE_KEY_PREFIX = 'user_'
     CACHE_TIMEOUT = 60 * 15  # 15 minutes
 
-    def get_cache_key(self, user_id):
-        return f"{self.CACHE_KEY_PREFIX}{user_id}"
+    @staticmethod
+    def get_cache_key(user_id):
+        return f"user_{user_id}_auth"
 
     def get(self, *args, **kwargs):
-        user_id = kwargs.get('id')
+        user_id = kwargs.get('pk')
         cache_key = self.get_cache_key(user_id)
-
         user = cache.get(cache_key)
         if not user:
             user = super().get(*args, **kwargs)

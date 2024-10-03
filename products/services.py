@@ -22,7 +22,7 @@ def get_product_from_cache(slug):
     if not product_data:
         try:
             product = Product.objects.prefetch_related(
-                Prefetch('estoque')  # Prefetch related stock to minimize queries
+                Prefetch('stock')  # Prefetch related stock to minimize queries
             ).get(slug=slug)
 
             # Serialize and cache the product
@@ -30,8 +30,8 @@ def get_product_from_cache(slug):
             set_cache(cache_key, product_data)
 
             # Cache stock information if it exists
-            if product.estoque:
-                set_cache(f'stock_{slug}', StockSerializer(product.estoque).data)
+            if product.stock:
+                set_cache(f'stock_{slug}', StockSerializer(product.stock).data)
 
         except Product.DoesNotExist:
             return None
@@ -46,9 +46,9 @@ def get_stock_from_cache(slug):
 
     if stock_data is None:
         try:
-            product = Product.objects.prefetch_related('estoque').get(slug=slug)
-            if product.estoque:
-                stock_data = StockSerializer(product.estoque).data
+            product = Product.objects.prefetch_related('stock').get(slug=slug)
+            if product.stock:
+                stock_data = StockSerializer(product.stock).data
                 set_cache(stock_cache_key, stock_data)
         except Product.DoesNotExist:
             return False
@@ -82,8 +82,8 @@ def cache_product_list(products):
         set_cache(cache_key, product_data)
         product_slugs.append(product.slug)
 
-        if product.estoque:
-            set_cache(f'stock_{product.slug}', StockSerializer(product.estoque).data)
+        if product.stock:
+            set_cache(f'stock_{product.slug}', StockSerializer(product.stock).data)
 
     # Cache the list of product slugs
     set_cache(PRODUCT_SLUGS_KEY, product_slugs)
@@ -135,8 +135,8 @@ def update_product_cache(sender, instance, **kwargs):
     # Cache serialized product and stock
     set_cache(product_cache_key, ProductSerializer(instance).data)
 
-    if instance.estoque:
-        set_cache(stock_cache_key, StockSerializer(instance.estoque).data)
+    if instance.stock:
+        set_cache(stock_cache_key, StockSerializer(instance.stock).data)
 
     # Update the cached product slugs list
     product_slugs = get_cached_product_slugs()

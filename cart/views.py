@@ -27,12 +27,10 @@ def add_to_cart(request, slug):
     else:
         # Add the product to the cart
         cart[slug] = {
-            'name': product['name'],
             'quantity': quantity,
         }
 
-    # Save the updated cart back to cookies
-    response = redirect('cart:detail')  # Redirect to the cart view after adding the product
+    response = redirect('cart:detail')
     save_cart(response, cart)
 
     return response

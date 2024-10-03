@@ -10,10 +10,10 @@ Perfil - {{ user_data.username }}
     <div class="row row-profile">
         <!-- Sidebar do Perfil -->
         <div class="col-md-3">
-            <div class="card">
+            <div class="card text-center">
                 <img src="{% static 'images/no_image.jpg' %}" class="card-img-top rounded-circle mx-auto mt-3" alt="Imagem de perfil" style="width: 150px;">
-                <div class="card-body text-center">
-                    <h5 class="card-title">{{ user_data.full_name }}</h5>
+                <div class="card-body">
+                    <h5 class="card-title">{{ user_data.username }}</h5>
                     <p class="card-text">{{ user_data.email }}</p>
                 </div>
                 <ul class="list-group list-group-flush">
@@ -32,14 +32,17 @@ Perfil - {{ user_data.username }}
                     <h4>Detalhes do Perfil</h4>
                 </div>
                 <div class="card-body">
+                    {% for label, value in profile_details %}
                     <div class="row mb-3 align-items-center">
                         <div class="col-sm-4">
-                            <p class="text-muted mb-0">Nome Completo</p>
+                            <p class="text-muted mb-0">{{ label }}</p>
                         </div>
                         <div class="col-sm-8">
-                            <p class="text-secondary mb-0"><i class="{{ user_data.vip_icon }}"></i> {{ user_data.full_name }}</p>
+                            <p class="text-secondary mb-0">{{ value }}</p>
                         </div>
                     </div>
+                    {% endfor %}
+
                     <div class="row mb-3 align-items-center">
                         <div class="col-sm-4">
                             <p class="text-muted mb-0">VIP</p>
@@ -47,68 +50,14 @@ Perfil - {{ user_data.username }}
                         <div class="col-sm-8">
                             {% if user_data.vip_info %}
                                 <p class="text-secondary mb-0">{{ user_data.vip_info|linebreaksbr }}</p>
-                                <a class="text-secondary mb-0" href="{% url 'pages:address_list'  %}"> Ver/Alterar plano VIP </a>
+                                <a href="{% url 'pages:address_list'  %}" class="text-secondary mb-0"> Ver/Alterar plano VIP </a>
                             {% else %}
-                                <a href="{% url 'pages:address_add'  %}" class="text-secondary mb-0">Você não é um membro
-                                VIP, adiquira um plano VIP clicando aqui</a>
+                                <a href="{% url 'pages:address_add' %}" class="text-secondary mb-0">Você não é membro VIP, adiquira um plano clicando aqui</a>
                             {% endif %}
                         </div>
                     </div>
-                    <div class="row mb-3 align-items-center">
-                        <div class="col-sm-4">
-                            <p class="text-muted mb-0">Email selecionado</p>
-                        </div>
-                        <div class="col-sm-8">
-                            {% if user_data.email %}
-                            <p class="text-secondary mb-0">{{ user_data.email }}</p>
-                            <a href="{% url 'account_email' %}" class="text-secondary mb-0">Alterar/Adicionar e-mail</a>
-                            {% else %}
-                            <a href="{% url 'account_email' %}" class="text-secondary mb-0">Adicione um e-mail</a>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="row mb-3 align-items-center">
-                        <div class="col-sm-4">
-                            <p class="text-muted mb-0">Data de Registro</p>
-                        </div>
-                        <div class="col-sm-8">
-                            <p class="text-secondary mb-0">{{ user_data.date_joined }}</p>
-                        </div>
-                    </div>
-                    <div class="row mb-3 align-items-center">
-                        <div class="col-sm-4">
-                            <p class="text-muted mb-0">Último Login</p>
-                        </div>
-                        <div class="col-sm-8">
-                            <p class="text-secondary mb-0">{{ user_data.last_login }}</p>
-                        </div>
-                    </div>
-                    <div class="row mb-3 align-items-center">
-                        <div class="col-sm-4">
-                            <p class="text-muted mb-0">Telefone selecionado</p>
-                        </div>
-                        <div class="col-sm-8">
-                            {% if user_data.phone_number %}
-                                <p class="text-secondary mb-0">{{ user_data.phone_number.number }}</p>
-                                <a href="{% url 'pages:phone_list' %}" class="text-secondary mb-0"> Alterar/Adicionar Telefones </a>
-                            {% else %}
-                                <a href="{% url 'pages:phone_add' %}" class="text-secondary mb-0">Adicione um telefone</a>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="row mb-3 align-items-center">
-                        <div class="col-sm-4">
-                            <p class="text-muted mb-0">Endereço selecionado</p>
-                        </div>
-                        <div class="col-sm-8">
-                            {% if user_data.address %}
-                                <p class="text-secondary mb-0">{{ user_data.address.full_address|linebreaksbr }} </p>
-                                <a href="{% url 'pages:address_list' %}" class="text-secondary mb-0"> Alterar/Adicionar Endereços </a>
-                            {% else %}
-                                <a href="{% url 'pages:address_add' %}" class="text-secondary mb-0">Adicione um endereço</a>
-                            {% endif %}
-                        </div>
-                    </div>
+                    {% include 'partials/profile_field.html' with element="Telefone" label="Telefone selecionado" field=user_data.phone_number.number url='pages:phone_list' %}
+                    {% include 'partials/profile_field.html' with element="Endereço" label="Endereço selecionado" field=user_data.address.full_address|linebreaksbr url='pages:address_list' %}
                 </div>
             </div>
         </div>

@@ -18,7 +18,7 @@ def get_user_data(current_user, target_user_id):
 
     # Try to fetch the target user object
     try:
-        target_user = User.objects.get(id=target_user_id)
+        target_user = User.objects.get(pk=target_user_id)
     except User.DoesNotExist:
         raise ObjectDoesNotExist(f"User with ID {target_user_id} not found.")
 
@@ -58,7 +58,7 @@ def get_promotions():
 
     if promotions is None:
         # Fetch from the database if the cache is empty
-        promotions_instance = list(Promotion.objects.order_by('starts_at', 'created'))
+        promotions_instance = Promotion.objects.order_by('starts_at', 'created')
         serialized_promotions = PromotionSerializer(promotions_instance, many=True).data
         # Set promotions in cache
         cache.set('promotions_list', serialized_promotions, timeout=settings.CACHE_TIMEOUT)
@@ -75,7 +75,7 @@ def update_promotion_cache(promotion):
     """
     promotions = cache.get('promotions_list')
 
-    # If the cache is empty, regenerate the promotions list
+    # If the cache is empty, regenerate only the specific promotion cache
     if promotions is None:
         promotions = get_promotions()
 
@@ -83,17 +83,12 @@ def update_promotion_cache(promotion):
     serialized_promotion = PromotionSerializer(promotion).data
 
     # Check if the promotion already exists in the cached list, and update it
-    updated_promotions = []
-    promotion_found = False
-    for promo in promotions:
-        if promo['id'] == promotion.id:
-            updated_promotions.append(serialized_promotion)  # Update the existing promotion
-            promotion_found = True
-        else:
-            updated_promotions.append(promo)
+    updated_promotions = [
+        serialized_promotion if promo['id'] == promotion.id else promo for promo in promotions
+    ]
 
-    if not promotion_found:
-        # If promotion is not found, it means it's a new promotion, so add it
+    if not any(promo['id'] == promotion.id for promo in promotions):
+        # If the promotion does not exist, append it
         updated_promotions.append(serialized_promotion)
 
     # Update the cache with the modified list
@@ -109,14 +104,15 @@ def remove_promotion_cache(promotion):
     promotions = cache.get('promotions_list')
 
     if promotions is None:
-        # If the cache is empty, nothing to remove
-        return
+        # Regenerate promotions if cache is empty, avoid inconsistency
+        promotions = get_promotions()
 
     # Filter out the promotion to be removed
     updated_promotions = [promo for promo in promotions if promo['id'] != promotion.id]
 
     # Update the cache with the new list
     cache.set('promotions_list', updated_promotions, timeout=settings.CACHE_TIMEOUT)
+
 
 
 def get_user_addresses(user):

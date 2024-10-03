@@ -47,7 +47,9 @@ def update_promotion_post_save(sender, instance, **kwargs):
 @receiver(post_delete, sender=Promotion)
 def revert_price_on_promotion_delete(sender, instance, **kwargs):
     # Revert the product's price when a promotion is deleted
-    instance.product.price = instance.original_price
-    instance.product.save(update_fields=['price'])
+    if instance.product and instance.original_price:
+        instance.product.price = instance.original_price
+        instance.product.save(update_fields=['price'])
+
     # Remove the promotion from the cache
     remove_promotion_cache(instance)

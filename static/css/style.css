@@ -204,7 +204,7 @@ body.dark-mode .menu .btn-success {
 }
 
 .dark-mode .footer {
-    background-color: #1a1a1a; /* cor de fundo do footer em dark mode */
+    background-color: rgb(64, 62, 62); /* cor de fundo do footer em dark mode */
     color: #ffffff; /* cor do texto em dark mode */
 }
 

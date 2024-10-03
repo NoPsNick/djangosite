@@ -10,7 +10,7 @@ from allauth.account.signals import (
     email_confirmed, email_removed, email_changed, email_added
 )
 
-from pages.serializers import UserSerializer  # Assuming you have a serializer for the User
+from pages.serializers import UserSerializer
 from users.models import Role
 
 User = get_user_model()
@@ -19,22 +19,18 @@ CACHE_TIMEOUT = settings.CACHE_TIMEOUT or 60 * 15  # Define your cache timeout c
 
 @receiver(post_save, sender=Role)
 def add_vip_permissions(sender, instance, **kwargs):
-    instance.verify_status()
-    instance.save()
-    vip_type = instance.role_type
-    if vip_type:
-        for perm in vip_type.permissions.all():
-            instance.user.user_permissions.add(perm)
-        instance.user.save()
+    from .services import RolePermissionService
+    """
+    Adds VIP or staff permissions when a new role is assigned.
+    """
+    instance.verify_status()  # Make sure the role status is up-to-date
+    RolePermissionService().verify_role_status(instance.user)
 
 
 @receiver(post_delete, sender=Role)
 def remove_vip_permissions(sender, instance, **kwargs):
-    vip_type = instance.role_type
-    if vip_type:
-        for perm in vip_type.permissions.all():
-            instance.user.user_permissions.remove(perm)
-        instance.user.save()
+    from .services import RolePermissionService
+    RolePermissionService().remove_role_permissions(instance.user, instance.role_type)
 
 
 def get_cache_key(user_id):
@@ -46,7 +42,7 @@ def get_cache_key(user_id):
 def update_cached_user(sender, instance, **kwargs):
     """Update the cached user data when a user instance is saved."""
     cache_key = get_cache_key(instance.pk)
-    serializer = UserSerializer(instance)  # Serialize the user data
+    serializer = UserSerializer(instance, context={'request': instance})  # Serialize the user data
     cache.set(cache_key, serializer.data, timeout=CACHE_TIMEOUT)  # Cache the serialized data
 
 
@@ -70,7 +66,7 @@ def remove_cached_user(sender, instance, **kwargs):
 def cache_user_on_sign_in(sender, request, user, **kwargs):
     """Cache the user data when logged in, signed up, or user information is changed."""
     cache_key = get_cache_key(user.id)
-    serializer = UserSerializer(user)  # Serialize the user data
+    serializer = UserSerializer(user, context={'request': user})  # Serialize the user data
     cache.set(cache_key, serializer.data, timeout=CACHE_TIMEOUT)  # Cache the serialized data
 
 

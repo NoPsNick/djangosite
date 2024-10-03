@@ -52,14 +52,16 @@ class Product(TimeStampedModel):
 
     def check_not_updated_promotions(self):
         """Check if any active promotions are valid and raise a ValidationError if not."""
-        now = timezone.now()
+        now = timezone.now()  # Get the current time in the correct timezone
         outdated_promotions = []
 
+        # Filter for active promotions and check their validity
         for promotion in self.promotions.filter(active=True):
-            # Check if the promotion is currently valid
             if not (promotion.starts_at <= now < promotion.expires_at):
-                outdated_promotions.append(promotion)
-                promotion.save()
+                # Only save if promotion state is outdated
+                if promotion.expires_at <= now:
+                    outdated_promotions.append(promotion)
+                    promotion.save()  # Save to update the promotion if necessary
 
         if outdated_promotions:
             # Raise an error if there are outdated promotions
@@ -72,7 +74,7 @@ class Product(TimeStampedModel):
 
 class Stock(TimeStampedModel):
     product = models.OneToOneField(
-        Product, related_name="estoque", on_delete=models.CASCADE
+        Product, related_name="stock", on_delete=models.CASCADE
     )
     units = models.PositiveIntegerField(
         default=0,
@@ -100,14 +102,14 @@ class Stock(TimeStampedModel):
         self.product.save(update_fields=['is_available'])
         super().save(*args, **kwargs)
         # Update product cache since availability changed
-        update_product_cache(None, self.product)
+        update_product_cache(sender=self, instance=self.product)
 
     def can_sell(self, quantity=1):
         """Check if there is enough stock to sell."""
         return self.units >= quantity
 
     @transaction.atomic
-    def sell(self, quantity=1):
+    def sell(self, request, quantity=1):
         from .services import update_product_cache
         """
         Safely reduce stock and increase units_sold using "transaction.atomic"
@@ -124,7 +126,7 @@ class Stock(TimeStampedModel):
         stock.save(update_fields=['units', 'units_sold'])
 
         # Only update cache after transaction is committed
-        transaction.on_commit(lambda: update_product_cache(None, self.product))
+        transaction.on_commit(lambda: update_product_cache(sender=self, instance=self.product))
 
         return True
 
@@ -143,7 +145,7 @@ class Stock(TimeStampedModel):
         stock.save(update_fields=['units', 'units_sold'])
 
         # Only update cache after transaction is committed
-        transaction.on_commit(lambda: update_product_cache(None, self.product))
+        transaction.on_commit(lambda: update_product_cache(sender=self, instance=self.product))
 
         return True
 
@@ -203,23 +205,25 @@ class Promotion(StatusModel, TimeStampedModel):
                 raise ValidationError("There is already an active promotion for this product.")
 
     def save(self, *args, **kwargs):
-        now = timezone.now()
+        now = timezone.now()  # Get the current time
 
-        # Update status based on current time
+        # Update promotion status based on the current time
         if self.expires_at and now > self.expires_at:
             self.status = self.EXPIRADO
-            self.product.price = self.original_price  # Revert product price if promotion has expired
-            self.product.save(update_fields=['price'])
+            if self.product.price != self.original_price:
+                self.product.price = self.original_price  # Revert to original price if promotion expired
+                self.product.save(update_fields=['price'])
 
         elif self.starts_at and now >= self.starts_at:
             self.status = self.ATIVO
-            self.product.price = self.changed_price  # Set the promotion price
-            self.product.save(update_fields=['price'])
+            if self.product.price != self.changed_price:
+                self.product.price = self.changed_price  # Apply promotion price
+                self.product.save(update_fields=['price'])
 
         else:
             self.status = self.PENDENTE
 
-        super().save(*args, **kwargs)
+        super().save(*args, **kwargs)  # Save the promotion instance
 
     def __str__(self):
         return f"Promoção do produto {self.product.name} - {self.status}"
@@ -342,13 +346,15 @@ class PromotionCode(TimeStampedModel):
         :param user: Who did use the code
         :return: None
         """
+        # Decrement global usage count
+        self.usage_count = F('usage_count') - 1
+        self.save(update_fields=['usage_count'])
+
         if user:
-            try:
-                promotion_code_usage = PromotionCodeUsage.objects.get(user=user, promotion_code=self)
-                promotion_code_usage.user_usage_count -= 1
-                promotion_code_usage.save()
-            except PromotionCodeUsage.DoesNotExist:
-                raise ValidationError("No usage to restore for this user.")
+            promotion_code_usage = PromotionCodeUsage.objects.get(user=user, promotion_code=self)
+            if promotion_code_usage and promotion_code_usage.user_usage_count > 0:
+                promotion_code_usage.user_usage_count = F('user_usage_count') - 1
+                promotion_code_usage.save(update_fields=['user_usage_count'])
 
 
 class PromotionCodeUsage(TimeStampedModel):

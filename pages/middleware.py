@@ -22,15 +22,10 @@ logger = logging.getLogger('rate_limit')
 
 
 def verify_log(key):
-    request_log = cache.get(key, [])
-    # Log cache hit or miss
-    if not request_log:
-        logger.info(f"Cache miss for key: {key}")
-    else:
-        logger.info(f"Cache hit for key: {key}")
+    cache_request_log = cache.get(key, [])
     current_time = time.time()
     # Remove outdated requests outside the sliding window
-    request_log = [req for req in request_log if current_time - req['timestamp'] <= SLIDING_WINDOW_TIME]
+    request_log = [req for req in cache_request_log if current_time - req['timestamp'] <= SLIDING_WINDOW_TIME]
     # Calculate total weight of recent requests
     total_weight = sum(req['weight'] for req in request_log)
     return current_time, request_log, total_weight
@@ -53,9 +48,6 @@ def get_cache_key(prefix, user_id=None, ip=None):
         key = f"{prefix}_{user_id}"
     elif ip:
         key = f"{prefix}_{hash_ip(ip)}"
-
-    # Log cache key generation
-    logger.debug(f"Generated cache key: {key}")
     return key
 
 
@@ -105,12 +97,12 @@ class GeneralRateLimitMiddleware(RateLimitMiddlewareBase):
         method = request.method
         weight = ACTION_WEIGHTS.get(method, 1)
 
-        if user.is_authenticated:
+        if not user.is_anonymous:
             key = get_cache_key('rate_limit', user_id=user.id)
             rate_limit_time = settings.GENERAL_RATE_LIMIT_TIME
         else:
             key = get_cache_key('rate_limit_anonymous', ip=hashed_ip)
-            rate_limit_time = getattr(settings, 'ANONYMOUS_RATE_LIMIT_TIME', settings.GENERAL_RATE_LIMIT_TIME / 2)
+            rate_limit_time = getattr(settings, 'ANONYMOUS_RATE_LIMIT_TIME', settings.GENERAL_RATE_LIMIT_TIME)
 
         # Check if rate limit is exceeded
         if self.is_rate_limited(key, rate_limit_time, weight=weight):

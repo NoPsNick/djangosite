@@ -34,7 +34,7 @@ def get_cart_items(request):
             total_price_product = str(Decimal(cart[slug]['quantity']) * Decimal(product_price))
             cart_items.append({
                 "product": {
-                    'name': item['name'],  # Use the name from the cookie
+                    'name': product['name'],  # Use the name from the cache
                     'price': product['price'],  # Use the price from the cache
                     'url': product['link_absoluto'],  # Product URL from the cache
                     'slug': slug,  # Product slug from the cookie
