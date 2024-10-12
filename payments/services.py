@@ -3,15 +3,16 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.db.models import F, Sum
 
-from payments.models import Payment, PaymentPromotionCode, PaymentStatus
+from payments.models import Payment, PaymentPromotionCode, PaymentStatus, PaymentMethod
 from products.models import PromotionCode
 from orders.models import Order
 
 
-def create_payment(user, order: Order, promo_codes: list = None):
+def create_payment(user, order: Order, payment_method: PaymentMethod, promo_codes: list = None):
     """
     Create a payment based on the user, order, and apply any valid promotion codes, discounting product prices if
     applicable.
+    :param payment_method: Payment method to use
     :param user: The user creating the payment
     :param order: Order object
     :param promo_codes: a list of promotion codes
@@ -34,7 +35,7 @@ def create_payment(user, order: Order, promo_codes: list = None):
     final_total_price = 0  # Initialize the final total price
 
     with transaction.atomic():
-        payment = Payment.objects.create(customer=user, order=order, price=total_price)
+        payment = Payment.objects.create(customer=user, order=order, amount=total_price, payment_method=payment_method)
 
         # Apply promotion codes if provided
         if promo_codes:
@@ -76,7 +77,7 @@ def create_payment(user, order: Order, promo_codes: list = None):
                     raise ValidationError(f"Failed to apply promo code {code}: {str(e)}")
 
             # Update payment with the discounted price (final total after applying discounts)
-            payment.price = final_total_price
+            payment.amount = final_total_price
             payment.save()
 
             # Create payment-promo code link
@@ -87,7 +88,7 @@ def create_payment(user, order: Order, promo_codes: list = None):
         else:
             # No promo codes were applied, use the initial total price
             final_total_price = total_price
-            payment.price = final_total_price
+            payment.amount = final_total_price
             payment.save()
 
         # Handle stock and finalize payment creation

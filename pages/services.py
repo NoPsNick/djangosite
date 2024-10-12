@@ -39,7 +39,6 @@ def get_user_data(current_user, target_user_id):
     return user_data
 
 
-
 def get_abouts():
     file_cache = caches['file_based']
     abouts = file_cache.get('about_list')
@@ -112,7 +111,6 @@ def remove_promotion_cache(promotion):
 
     # Update the cache with the new list
     cache.set('promotions_list', updated_promotions, timeout=settings.CACHE_TIMEOUT)
-
 
 
 def get_user_addresses(user):

@@ -39,6 +39,7 @@ def get_cart_items(request):
                     'url': product['link_absoluto'],  # Product URL from the cache
                     'slug': slug,  # Product slug from the cookie
                 },
+                'quantity': item['quantity'],
                 "update_quantity_form": CartAddProductForm(
                     initial={"quantity": item["quantity"], "override": True}),
                 "total_price_product": str(total_price_product),

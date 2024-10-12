@@ -23,7 +23,6 @@ from .services import get_user_data, get_abouts, get_user_addresses, get_user_nu
 from .serializers import AddressSerializer, PhoneNumberSerializer
 
 
-
 # Create your views here.
 class HomePageView(TemplateView):
     template_name = "home.html"
@@ -129,18 +128,18 @@ class UserAddressUpdate(UserPassesTestMixin, UpdateView):
         return response
 
     def form_valid(self, form):
-        """Custom validation to handle 'selecionado' status and ensure correct address."""
+        """Custom validation to handle 'selected' status and ensure correct address."""
         user = self.request.user
         addresses = get_user_addresses(user)
-        filtered_address = [address for address in addresses if address.id == form.instance.id]
+        filtered_address = [address for address in addresses if address['id'] == form.instance.id]
 
         if filtered_address:
             address = filtered_address[0]
-            if address.selected:
+            if address['selected']:
                 messages.warning(self.request, 'Não é possível alterar o seu endereço principal.')
                 return redirect(reverse("pages:address_list"))
 
-            if form.instance.selected and not address.selected:
+            if form.instance.selected and not address['selected']:
                 form.instance.set_address_as_selected()
         else:
             messages.warning(self.request, "Ocorreu um erro ao tentar encontrar o endereço")
@@ -227,18 +226,18 @@ class UserPhoneNumberUpdate(UserPassesTestMixin, UpdateView):
     def form_valid(self, form):
         user = self.request.user
         phone_numbers = get_user_numbers(user)
-        filtered_number = [phone for phone in phone_numbers if phone.id == form.instance.id]
+        filtered_number = [phone for phone in phone_numbers if phone['id'] == form.instance.id]
 
         # Verifica se há o telefone
         if filtered_number:
             number = filtered_number[0]
             # Verifica se o telefone está selecionado e se é o principal
-            if number.selected:
+            if number['selected']:
                 messages.warning(self.request, 'Não é possível alterar o seu telefone principal.')
                 return redirect(reverse("pages:phone_list"))
 
             # Atualiza o telefone selecionado
-            if form.instance.selected and not number.selected:
+            if form.instance.selected and not number['selected']:
                 form.instance.set_phone_number_as_selected()
 
         form.save()

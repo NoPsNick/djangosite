@@ -108,7 +108,7 @@ def get_cached_product_slugs():
     product_slugs = cache.get(PRODUCT_SLUGS_KEY)
 
     if product_slugs is None:
-        products = Product.objects.all()
+        products = Product.objects.all().order_by('-id')
         cache_product_list(products)
         product_slugs = [product.slug for product in products]
 
@@ -120,7 +120,7 @@ def get_cached_category_slugs():
     category_slugs = cache.get(CATEGORY_SLUGS_KEY)
 
     if category_slugs is None:
-        categories = Category.objects.all()
+        categories = Category.objects.all().order_by('-id')
         cache_category_list(categories)
         category_slugs = [category.slug for category in categories]
 

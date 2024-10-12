@@ -3,20 +3,22 @@ from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 
+from decimal import Decimal
+
 from model_utils.models import TimeStampedModel, StatusModel
 from model_utils import Choices
 
+from orders.managers import OrderManager
 from products.models import Product, PromotionCode
 
 User = get_user_model()
+
 
 class Order(TimeStampedModel, StatusModel):
     Cancelled = "Cancelado"
     Way = "A caminho"
     Waiting_payment = "Aguardando pagamento"
     Finalized = "Finalizado"
-    Sell = "Vender"
-    Restore = "Cancelar Venda"
 
     STATUS = Choices(
         (Way, "A caminho"),
@@ -28,6 +30,8 @@ class Order(TimeStampedModel, StatusModel):
     customer = models.ForeignKey(User, related_name="pedidos", verbose_name="Cliente", on_delete=models.PROTECT)
     is_paid = models.BooleanField(verbose_name="Foi pago?", default=False)
 
+    objects = OrderManager()
+
     class Meta:
         verbose_name = "pedido"
         verbose_name_plural = "pedidos"
@@ -36,7 +40,8 @@ class Order(TimeStampedModel, StatusModel):
         return f"Order #{self.id} - {self.get_status_display()}"
 
     def get_total_amount(self):
-        return sum(item.get_total_price() for item in self.items.all())  # Sum the total for all items
+        return Decimal(sum(item.get_total_price() for item in self.items.all()))  # Sum the total for all items
+
 
 class Item(models.Model):
     order = models.ForeignKey(Order, verbose_name="Pedido", related_name="items", on_delete=models.CASCADE)
@@ -56,5 +61,4 @@ class Item(models.Model):
         return f"Item {self.product.name} (Quantity: {self.quantity})"
 
     def get_total_price(self):
-        return self.product.price * self.quantity
-
+        return Decimal(self.product.price * self.quantity)

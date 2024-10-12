@@ -38,6 +38,9 @@ urlpatterns = [
     # CARRINHO
     path('carrinho/', include('cart.urls')),
 
+    # PEDIDOS
+    path('pedidos/', include('orders.urls')),
+
     # CONFIGURAÇÕES DO STATIC/MEDIA FILES
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
     re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),

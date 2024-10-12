@@ -14,7 +14,7 @@ from users.managers import PhoneNumberManager, AddressManager, CachedUserManager
 
 
 class Address(TimeStampedModel):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="enderecos", on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="addresses", on_delete=models.CASCADE)
     postal_code = BRPostalCodeField("CEP")
     rua = models.CharField("Rua", max_length=250)
     number = models.CharField("Número", max_length=250)
@@ -46,7 +46,7 @@ class Address(TimeStampedModel):
         Address.objects.filter(user=self.user, selected=True).update(selected=False)
         self.selected = True
         self.save()
-        self.user.endereco = self
+        self.user.address = self
         self.user.save()
 
     def __str__(self):
@@ -56,13 +56,18 @@ class Address(TimeStampedModel):
         return f"{self.postal_code} {self.id}"
 
     class Meta:
+        constraints = [
+            # Ensures only one address can be selected per user
+            models.UniqueConstraint(fields=['user'], condition=models.Q(selected=True),
+                                    name='unique_selected_address_per_user')
+        ]
         verbose_name = "endereço"
         verbose_name_plural = "endereços"
 
 
 class PhoneNumber(TimeStampedModel):
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="celulares", on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="phones", on_delete=models.CASCADE)
     number = models.CharField("Número do telefone", max_length=30)
     selected = models.BooleanField("Selecionado", default=False)
 
@@ -91,6 +96,10 @@ class PhoneNumber(TimeStampedModel):
         return f'{self.number}'
 
     class Meta:
+        constraints = [
+            # Ensures only one phone number can be selected per user
+            models.UniqueConstraint(fields=['user'], condition=models.Q(selected=True), name='unique_selected_phone_per_user')
+        ]
         verbose_name = "telefone"
         verbose_name_plural = "telefones"
 
@@ -131,7 +140,7 @@ class Role(StatusModel, TimeStampedModel):
     ]
 
     status = models.CharField("Status", max_length=10, choices=STATUS_CHOICES, default=PENDENTE)
-    role_type = models.ForeignKey(RoleType, related_name="role_types", on_delete=models.CASCADE)
+    role_type = models.ForeignKey(RoleType, related_name="roles", on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="roles", on_delete=models.CASCADE)
     expires_at = models.DateTimeField(blank=True, null=True, db_index=True)
 
@@ -180,9 +189,9 @@ class User(AbstractUser):
 
     role = models.OneToOneField(Role, verbose_name="Cargo", related_name="role", default=None, null=True, blank=True,
                                 on_delete=models.SET_NULL)
-    address = models.OneToOneField(Address, verbose_name="Endereço", related_name="endereco",
+    address = models.OneToOneField(Address, verbose_name="Endereço", related_name="user_from_address",
                                    on_delete=models.SET_NULL, null=True, blank=True)
-    phone_number = models.OneToOneField(PhoneNumber, verbose_name="Telefone", related_name="telefone",
+    phone_number = models.OneToOneField(PhoneNumber, verbose_name="Telefone", related_name="user_from_phone",
                                         on_delete=models.SET_NULL, null=True, blank=True)
     tos_accept = models.BooleanField("Aceita os Termos de Serviço", default=False)
     birth_date = models.DateField("Date de Nascimento", blank=True, null=True)

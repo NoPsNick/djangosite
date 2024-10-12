@@ -342,3 +342,9 @@ body.dark-mode .btn-success {
     background-color: #198754; /* Cor do botão finalizar compra */
     border-color: #198754; /* Borda do botão finalizar compra */
 }
+
+body.dark-mode .pagination{
+    background-color: #495057;
+    border-color: #495057;
+    color: #ffffff;
+}

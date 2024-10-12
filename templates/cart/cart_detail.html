@@ -8,7 +8,6 @@
 {% block content %}
     <div class="container my-3">
         <h1 class="fw-bold">Meu Carrinho</h1>
-        <div class="col-lg-auto">
             {% if cart_items %}
                 <table class="table carrinho">
                     <thead>
@@ -69,12 +68,14 @@
                     Continuar comprando
                 </a>
                 {% if user.is_authenticated %}
-                    <a class="btn btn-success {% if not cart or not user.is_verificado or not user.endereco %}disabled{% endif %}"
-                        href="#">
-                        Finalizar compra
-                    </a>
+                    <form action="{% url 'orders:create_order' %}" method="post" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success {% if not cart_items or not user.address %}{% endif %}">
+                            Finalizar compra
+                        </button>
+                    </form>
                 {% else %}
-                    <a class="btn btn-success {% if not cart %}disabled{% endif %}" href="#">
+                    <a class="btn btn-success {% if not cart_items %}disabled{% endif %}" href="{% url 'account_signup' %}">
                         Cadastrar-se
                     </a>
                 {% endif %}

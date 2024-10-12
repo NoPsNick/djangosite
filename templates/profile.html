@@ -56,8 +56,10 @@ Perfil - {{ user_data.username }}
                             {% endif %}
                         </div>
                     </div>
-                    {% include 'partials/profile_field.html' with element="Telefone" label="Telefone selecionado" field=user_data.phone_number.number url='pages:phone_list' %}
-                    {% include 'partials/profile_field.html' with element="Endereço" label="Endereço selecionado" field=user_data.address.full_address|linebreaksbr url='pages:address_list' %}
+                    {% url 'pages:phone_list' as url_phone_list %}
+                    {% include 'partials/profile_field.html' with element="Telefone" label="Telefone selecionado" field=user_data.phone_number.number url=url_phone_list %}
+                    {% url 'pages:address_list' as url_address_list %}
+                    {% include 'partials/profile_field.html' with element="Endereço" label="Endereço selecionado" field=user_data.address.full_address|linebreaksbr url=url_address_list %}
                 </div>
             </div>
         </div>
