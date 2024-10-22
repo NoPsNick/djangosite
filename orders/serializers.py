@@ -1,20 +1,16 @@
 from rest_framework import serializers
-
 from orders.models import Order, Item
 from products.serializers import ProductSerializer
 
 
-class OrderSerializer(serializers.ModelSerializer):
+class BaseOrderSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     total_amount = serializers.SerializerMethodField()
     customer = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
-        fields = ['id',
-                  'status',
-                  'customer',
-                  'total_amount']
+        fields = ['id', 'status', 'customer', 'total_amount']
 
     def get_total_amount(self, obj):
         return str(obj.get_total_amount())
@@ -24,6 +20,11 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def get_customer(self, obj):
         return obj.customer.first_name if obj.customer.first_name else obj.customer.username
+
+
+class OrderSerializer(BaseOrderSerializer):
+    class Meta(BaseOrderSerializer.Meta):
+        pass
 
 
 class ItemSerializer(serializers.ModelSerializer):
@@ -39,22 +40,11 @@ class ItemSerializer(serializers.ModelSerializer):
         return str(obj.get_total_price())
 
 
-class OrderDetailSerializer(serializers.ModelSerializer):
-    status = serializers.SerializerMethodField()
-    total_amount = serializers.SerializerMethodField()
+class OrderDetailSerializer(BaseOrderSerializer):
     products = serializers.SerializerMethodField()
-    customer = serializers.SerializerMethodField()
 
-    class Meta:
-        model = Order
-        fields = ['id', 'status', 'customer', 'total_amount', 'products']
-        read_only_fields = ['id']
-
-    def get_total_amount(self, obj):
-        return str(obj.get_total_amount())
-
-    def get_status(self, obj):
-        return obj.get_status_display()
+    class Meta(BaseOrderSerializer.Meta):
+        fields = BaseOrderSerializer.Meta.fields + ['products']
 
     def get_products(self, obj):
         # Explicitly fetch the related items and products
@@ -65,6 +55,3 @@ class OrderDetailSerializer(serializers.ModelSerializer):
 
         # Return fully serialized data
         return serializer.data
-
-    def get_customer(self, obj):
-        return obj.customer.first_name if obj.customer.first_name else obj.customer.username

@@ -56,6 +56,14 @@ Perfil - {{ user_data.username }}
                             {% endif %}
                         </div>
                     </div>
+                    {% url 'orders:order_list' as orders_url %}
+                    {% with label="Pedidos" url=orders_url message="Meus Pedidos" %}
+                        {% include "partials/profile_field.html" %}
+                    {% endwith %}
+                    {% url 'payments:payment_list' as payments_url %}
+                    {% with label="Pagamentos" url=payments_url message="Meus Pagamentos" %}
+                        {% include "partials/profile_field.html" %}
+                    {% endwith %}
                 </div>
             </div>
         </div>
