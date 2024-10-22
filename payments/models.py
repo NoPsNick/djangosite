@@ -8,6 +8,7 @@ from decimal import Decimal
 from model_utils.models import TimeStampedModel, SoftDeletableModel
 
 from orders.models import Order
+from payments.managers import PaymentManager
 from products.models import PromotionCode
 
 User = get_user_model()
@@ -35,10 +36,9 @@ class ExternalApiResponse(TimeStampedModel):
 class PaymentMethod(TimeStampedModel):
     """Model representing a method of payment."""
     PAYMENT_TYPE_CHOICES = [
-        ('credit_card', 'Credit Card'),
+        ('credit_card', 'Cartão de Crédito'),
         ('paypal', 'PayPal'),
-        ('bank_transfer', 'Bank Transfer'),
-        # Add more as needed
+        ('bank_transfer', 'Transferência Bancária'),
     ]
 
     name = models.CharField(verbose_name="Nome",
@@ -75,10 +75,10 @@ class PaymentMethod(TimeStampedModel):
 
 
 class PaymentStatus(models.TextChoices):
-    PENDING = 'pending', 'Pending'
-    COMPLETED = 'completed', 'Completed'
-    FAILED = 'failed', 'Failed'
-    REFUNDED = 'refunded', 'Refunded'
+    PENDING = 'pending', 'Pendente'
+    COMPLETED = 'completed', 'Completo'
+    FAILED = 'failed', 'Falhou'
+    REFUNDED = 'refunded', 'Reembolsado'
 
 
 class Payment(TimeStampedModel, SoftDeletableModel):
@@ -122,6 +122,8 @@ class Payment(TimeStampedModel, SoftDeletableModel):
         related_name='payments',
         blank=True
     )
+
+    objects = PaymentManager()
 
     class Meta:
         verbose_name = "Pagamento"

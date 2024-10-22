@@ -1,4 +1,3 @@
-# -*- coding: latin-1 -*-
 """
 URL configuration for djangoProject project.
 
@@ -25,7 +24,7 @@ from django.views.static import serve
 
 
 urlpatterns = [
-    # P¡GINAS PRINCIPAIS
+    # P√ÅGINAS PRINCIPAIS
     path("", include("pages.urls")),
     path('admin/', admin.site.urls),
 
@@ -41,7 +40,10 @@ urlpatterns = [
     # PEDIDOS
     path('pedidos/', include('orders.urls')),
 
-    # CONFIGURA«’ES DO STATIC/MEDIA FILES
+    # PAGAMENTOS
+    path('pagamentos/', include('payments.urls')),
+
+    # CONFIGURA√á√ïES DO STATIC/MEDIA FILES
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
     re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
 ]
