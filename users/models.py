@@ -6,102 +6,102 @@ from django.urls import reverse
 from django.core.exceptions import ValidationError
 
 from model_utils.models import TimeStampedModel, StatusModel
-from localflavor.br.models import BRPostalCodeField, BRStateField
+# from localflavor.br.models import BRPostalCodeField, BRStateField
 
 from datetime import timedelta, date
 
-from users.managers import PhoneNumberManager, AddressManager, CachedUserManager
+from users.managers import CachedUserManager
 
 
-class Address(TimeStampedModel):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="addresses", on_delete=models.CASCADE)
-    postal_code = BRPostalCodeField("CEP")
-    rua = models.CharField("Rua", max_length=250)
-    number = models.CharField("Número", max_length=250)
-    complement = models.CharField("Complemento", max_length=250, blank=True)
-    district = models.CharField("Bairro", max_length=250)
-    state = BRStateField("Estado")
-    city = models.CharField("Cidade", max_length=250)
-    selected = models.BooleanField("Selecionado", default=False)
+# class Address(TimeStampedModel):
+#     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="addresses", on_delete=models.CASCADE)
+#     postal_code = BRPostalCodeField("CEP")
+#     rua = models.CharField("Rua", max_length=250)
+#     number = models.CharField("Número", max_length=250)
+#     complement = models.CharField("Complemento", max_length=250, blank=True)
+#     district = models.CharField("Bairro", max_length=250)
+#     state = BRStateField("Estado")
+#     city = models.CharField("Cidade", max_length=250)
+#     selected = models.BooleanField("Selecionado", default=False)
+#
+#     objects = AddressManager()
+#
+#     def get_absolute_url(self):
+#         return reverse("pages:address_update", kwargs={"pk": self.id}) if not self.selected else reverse(
+#             'pages:address_list')
+#
+#     def get_remove_url(self):
+#         return reverse("pages:address_delete", kwargs={"pk": self.id}) if not self.selected else reverse(
+#             'pages:address_list')
+#
+#     def get_full_address(self):
+#         complemento = f"\nComplemento: {self.complement}" if self.complement else ""
+#         return (f"Endereço: {self.rua}, {self.number}, {self.postal_code}\n"
+#                 f"Bairro: {self.district}\n"
+#                 f"Cidade: {self.city}\n"
+#                 f"Estado: {self.state}{complemento}")
+#
+#     def set_address_as_selected(self):
+#         # Desmarca o endereço atualmente selecionado
+#         Address.objects.filter(user=self.user, selected=True).update(selected=False)
+#         self.selected = True
+#         self.save()
+#         self.user.address = self
+#         self.user.save()
+#
+#     def __str__(self):
+#         return f"{self.postal_code} {self.id}"
+#
+#     def get_address_info(self):
+#         return f"{self.postal_code} {self.id}"
+#
+#     class Meta:
+#         constraints = [
+#             # Ensures only one address can be selected per user
+#             models.UniqueConstraint(fields=['user'], condition=models.Q(selected=True),
+#                                     name='unique_selected_address_per_user')
+#         ]
+#         verbose_name = "endereço"
+#         verbose_name_plural = "endereços"
 
-    objects = AddressManager()
 
-    def get_absolute_url(self):
-        return reverse("pages:address_update", kwargs={"pk": self.id}) if not self.selected else reverse(
-            'pages:address_list')
-
-    def get_remove_url(self):
-        return reverse("pages:address_delete", kwargs={"pk": self.id}) if not self.selected else reverse(
-            'pages:address_list')
-
-    def get_full_address(self):
-        complemento = f"\nComplemento: {self.complement}" if self.complement else ""
-        return (f"Endereço: {self.rua}, {self.number}, {self.postal_code}\n"
-                f"Bairro: {self.district}\n"
-                f"Cidade: {self.city}\n"
-                f"Estado: {self.state}{complemento}")
-
-    def set_address_as_selected(self):
-        # Desmarca o endereço atualmente selecionado
-        Address.objects.filter(user=self.user, selected=True).update(selected=False)
-        self.selected = True
-        self.save()
-        self.user.address = self
-        self.user.save()
-
-    def __str__(self):
-        return f"{self.postal_code} {self.id}"
-
-    def get_address_info(self):
-        return f"{self.postal_code} {self.id}"
-
-    class Meta:
-        constraints = [
-            # Ensures only one address can be selected per user
-            models.UniqueConstraint(fields=['user'], condition=models.Q(selected=True),
-                                    name='unique_selected_address_per_user')
-        ]
-        verbose_name = "endereço"
-        verbose_name_plural = "endereços"
-
-
-class PhoneNumber(TimeStampedModel):
-
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="phones", on_delete=models.CASCADE)
-    number = models.CharField("Número do telefone", max_length=30)
-    selected = models.BooleanField("Selecionado", default=False)
-
-    objects = PhoneNumberManager()
-
-    def get_absolute_url(self):
-        return reverse("pages:phone_update", kwargs={"pk": self.id}) if not self.selected else reverse(
-            'pages:phone_list')
-
-    def get_remove_url(self):
-        return reverse("pages:phone_delete", kwargs={"pk": self.id}) if not self.selected else reverse(
-            'pages:phone_list')
-
-    def set_phone_number_as_selected(self):
-        # Desmarca o telefone atualmente selecionado
-        PhoneNumber.objects.filter(user=self.user, selected=True).update(selected=False)
-        self.selected = True
-        self.save()
-        self.user.phone_number = self
-        self.user.save()
-
-    def __str__(self):
-        return f'{self.number}'
-
-    def get_phone_info(self):
-        return f'{self.number}'
-
-    class Meta:
-        constraints = [
-            # Ensures only one phone number can be selected per user
-            models.UniqueConstraint(fields=['user'], condition=models.Q(selected=True), name='unique_selected_phone_per_user')
-        ]
-        verbose_name = "telefone"
-        verbose_name_plural = "telefones"
+# class PhoneNumber(TimeStampedModel):
+#
+#     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="phones", on_delete=models.CASCADE)
+#     number = models.CharField("Número do telefone", max_length=30)
+#     selected = models.BooleanField("Selecionado", default=False)
+#
+#     objects = PhoneNumberManager()
+#
+#     def get_absolute_url(self):
+#         return reverse("pages:phone_update", kwargs={"pk": self.id}) if not self.selected else reverse(
+#             'pages:phone_list')
+#
+#     def get_remove_url(self):
+#         return reverse("pages:phone_delete", kwargs={"pk": self.id}) if not self.selected else reverse(
+#             'pages:phone_list')
+#
+#     def set_phone_number_as_selected(self):
+#         # Desmarca o telefone atualmente selecionado
+#         PhoneNumber.objects.filter(user=self.user, selected=True).update(selected=False)
+#         self.selected = True
+#         self.save()
+#         self.user.phone_number = self
+#         self.user.save()
+#
+#     def __str__(self):
+#         return f'{self.number}'
+#
+#     def get_phone_info(self):
+#         return f'{self.number}'
+#
+#     class Meta:
+#         constraints = [
+#             # Ensures only one phone number can be selected per user
+#             models.UniqueConstraint(fields=['user'], condition=models.Q(selected=True), name='unique_selected_phone_per_user')
+#         ]
+#         verbose_name = "telefone"
+#         verbose_name_plural = "telefones"
 
 
 class RoleType(TimeStampedModel):
@@ -189,10 +189,11 @@ class User(AbstractUser):
 
     role = models.OneToOneField(Role, verbose_name="Cargo", related_name="role", default=None, null=True, blank=True,
                                 on_delete=models.SET_NULL)
-    address = models.OneToOneField(Address, verbose_name="Endereço", related_name="user_from_address",
-                                   on_delete=models.SET_NULL, null=True, blank=True)
-    phone_number = models.OneToOneField(PhoneNumber, verbose_name="Telefone", related_name="user_from_phone",
-                                        on_delete=models.SET_NULL, null=True, blank=True)
+    balance = models.PositiveIntegerField("Saldo", default=0)
+    # address = models.OneToOneField(Address, verbose_name="Endereço", related_name="user_from_address",
+    #                                on_delete=models.SET_NULL, null=True, blank=True)
+    # phone_number = models.OneToOneField(PhoneNumber, verbose_name="Telefone", related_name="user_from_phone",
+    #                                     on_delete=models.SET_NULL, null=True, blank=True)
     tos_accept = models.BooleanField("Aceita os Termos de Serviço", default=False)
     birth_date = models.DateField("Date de Nascimento", blank=True, null=True)
 
@@ -214,19 +215,19 @@ class User(AbstractUser):
             return self.role.role_type.icon
         return ''
 
-    def verify_address(self):
-        addresses = Address.objects.get_user_addresses(self)
-        if addresses:
-            num_addresses = len(addresses)
-            return num_addresses < getattr(settings, 'MAX_ADDRESS_PER_USER', 2)
-        return True
-
-    def verify_phone_number(self):
-        phone_numbers = PhoneNumber.objects.get_user_phone_numbers(self)
-        if phone_numbers:
-            num_phone_numbers = len(phone_numbers)
-            return num_phone_numbers < getattr(settings, 'MAX_PHONE_NUMBER_PER_USER', 2)
-        return True
+    # def verify_address(self):
+    #     addresses = Address.objects.get_user_addresses(self)
+    #     if addresses:
+    #         num_addresses = len(addresses)
+    #         return num_addresses < getattr(settings, 'MAX_ADDRESS_PER_USER', 2)
+    #     return True
+    #
+    # def verify_phone_number(self):
+    #     phone_numbers = PhoneNumber.objects.get_user_phone_numbers(self)
+    #     if phone_numbers:
+    #         num_phone_numbers = len(phone_numbers)
+    #         return num_phone_numbers < getattr(settings, 'MAX_PHONE_NUMBER_PER_USER', 2)
+    #     return True
 
     class Meta:
         verbose_name = "usuário"

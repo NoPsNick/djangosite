@@ -14,8 +14,8 @@ ACTION_WEIGHTS = {
 }
 
 # Maximum weight allowed in a given time window (sliding window)
-MAX_WEIGHT = 20
-SLIDING_WINDOW_TIME = 60 * 5 # minutes
+MAX_WEIGHT = 100
+SLIDING_WINDOW_TIME = 60 * 10 # minutes
 
 # Set up logging
 logger = logging.getLogger('rate_limit')

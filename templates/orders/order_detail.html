@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}Pedido{% endblock %}
+
+{% block content %}
+    <div class="container my-3">
+        <h1 class="fw-bold">Pedido #{{ order.id }}</h1>
+        
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID do Pedido</th>
+                        <th>Estado do Pedido</th>
+                        <th>Total</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ order.id }}</td>
+                        <td>{{ order.status }}</td>
+                        <td>R$ {{ order.total_amount }}</td>
+                        <td>
+                            {% if order.status == 'Aguardando pagamento' %}
+                                <a href="{% url 'orders:create_payment' order_id=order.id %}">Pagar</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <table class="table table-striped table-hover table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Produto</th>
+                        <th>Quantidade</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in order.products %}
+                        <tr>
+                            <td>{{ item.product.name }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>{{ item.full_price }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock content %}

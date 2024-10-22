@@ -3,7 +3,7 @@ from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 from django.conf import settings
 
 from products.models import Promotion
-from users.models import User, Address, PhoneNumber
+from users.models import User
 from .models import About
 from .serializers import UserSerializer, PromotionSerializer, AboutSerializer
 
@@ -113,9 +113,9 @@ def remove_promotion_cache(promotion):
     cache.set('promotions_list', updated_promotions, timeout=settings.CACHE_TIMEOUT)
 
 
-def get_user_addresses(user):
-    return Address.objects.get_user_addresses(user=user)
-
-
-def get_user_numbers(user):
-    return PhoneNumber.objects.get_user_phone_numbers(user=user)
+# def get_user_addresses(user):
+#     return Address.objects.get_user_addresses(user=user)
+#
+#
+# def get_user_numbers(user):
+#     return PhoneNumber.objects.get_user_phone_numbers(user=user)

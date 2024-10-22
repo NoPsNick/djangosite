@@ -50,16 +50,12 @@ Perfil - {{ user_data.username }}
                         <div class="col-sm-8">
                             {% if user_data.vip_info %}
                                 <p class="text-secondary mb-0">{{ user_data.vip_info|linebreaksbr }}</p>
-                                <a href="{% url 'pages:address_list'  %}" class="text-secondary mb-0"> Ver/Alterar plano VIP </a>
+                                <a href="#" class="text-secondary mb-0"> Ver/Alterar plano VIP </a>
                             {% else %}
-                                <a href="{% url 'pages:address_add' %}" class="text-secondary mb-0">Você não é membro VIP, adiquira um plano clicando aqui</a>
+                                <a href="#" class="text-secondary mb-0">Você não é membro VIP, adiquira um plano clicando aqui</a>
                             {% endif %}
                         </div>
                     </div>
-                    {% url 'pages:phone_list' as url_phone_list %}
-                    {% include 'partials/profile_field.html' with element="Telefone" label="Telefone selecionado" field=user_data.phone_number.number url=url_phone_list %}
-                    {% url 'pages:address_list' as url_address_list %}
-                    {% include 'partials/profile_field.html' with element="Endereço" label="Endereço selecionado" field=user_data.address.full_address|linebreaksbr url=url_address_list %}
                 </div>
             </div>
         </div>

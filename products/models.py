@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import F, Case, When, Value, BooleanField
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils import timezone
@@ -97,8 +97,11 @@ class Stock(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         from .services import update_product_cache
+
         # Update product availability based on stock
-        self.product.is_available = self.units > 0
+        updated_stock = Stock.objects.get(id=self.id)
+
+        self.product.is_available = updated_stock.units > 0
         self.product.save(update_fields=['is_available'])
         super().save(*args, **kwargs)
         # Update product cache since availability changed
@@ -109,7 +112,7 @@ class Stock(TimeStampedModel):
         return self.units >= quantity
 
     @transaction.atomic
-    def sell(self, request, quantity=1):
+    def sell(self, quantity=1):
         from .services import update_product_cache
         """
         Safely reduce stock and increase units_sold using "transaction.atomic"
@@ -125,10 +128,16 @@ class Stock(TimeStampedModel):
         stock.units_sold = F('units_sold') + quantity
         stock.save(update_fields=['units', 'units_sold'])
 
-        # Only update cache after transaction is committed
-        transaction.on_commit(lambda: update_product_cache(sender=self, instance=self.product))
+        # After the update, fetch the updated units from the database
+        updated_stock = Stock.objects.get(id=stock.id)
+        available_units = updated_stock.units  # This will be an integer
 
-        return True
+        # Set product availability based on the updated units
+        stock.product.is_available = available_units > 0
+        stock.product.save(update_fields=['is_available'])
+
+        # Only update cache after transaction is committed
+        transaction.on_commit(lambda: update_product_cache(sender=updated_stock, instance=updated_stock.product))
 
     @transaction.atomic
     def restore(self, quantity=1):
@@ -146,8 +155,6 @@ class Stock(TimeStampedModel):
 
         # Only update cache after transaction is committed
         transaction.on_commit(lambda: update_product_cache(sender=self, instance=self.product))
-
-        return True
 
 
 class Promotion(StatusModel, TimeStampedModel):

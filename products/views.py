@@ -1,6 +1,6 @@
 from django.core.cache import cache
 from django.utils.decorators import method_decorator
-from django.views.generic import TemplateView, DetailView
+from django.views.generic import TemplateView
 from django.http import Http404
 from django.core.paginator import Paginator
 

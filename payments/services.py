@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.core.exceptions import ValidationError
@@ -7,8 +8,10 @@ from payments.models import Payment, PaymentPromotionCode, PaymentStatus, Paymen
 from products.models import PromotionCode
 from orders.models import Order
 
+User = get_user_model()
 
-def create_payment(user, order: Order, payment_method: PaymentMethod, promo_codes: list = None):
+
+def create_payment(user: User, order: Order, payment_method: PaymentMethod, promo_codes: list = None):
     """
     Create a payment based on the user, order, and apply any valid promotion codes, discounting product prices if
     applicable.
@@ -113,11 +116,10 @@ def create_payment(user, order: Order, payment_method: PaymentMethod, promo_code
 
 @transaction.atomic
 def refund_payment(payment: Payment):
-    if payment.status == PaymentStatus.COMPLETED:
-        payment.status = PaymentStatus.REFUNDED
-        payment.save(update_fields=['status'])
+    payment.status = PaymentStatus.REFUNDED
+    payment.save(update_fields=['status'])
 
-        payment.order.status = Order.Cancelled
+    payment.order.status = Order.Cancelled
     payment.order.is_paid = False
     payment.order.save(update_fields=['status', 'is_paid'])
 
@@ -136,3 +138,13 @@ def refund_payment(payment: Payment):
         promo_code = payment_code.promotion_code
         promo_code.restore_usage(user=payment.customer)
         payment_code.delete()
+
+
+@transaction.atomic
+def complete_payment(payment: Payment):
+    payment.status = PaymentStatus.COMPLETED
+    payment.save(update_fields=['status'])
+
+    payment.order.status = Order.Finalized
+    payment.order.is_paid = True
+    payment.order.save(update_fields=['status', 'is_paid'])

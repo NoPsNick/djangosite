@@ -41,8 +41,14 @@ class PaymentMethod(TimeStampedModel):
         # Add more as needed
     ]
 
+    name = models.CharField(verbose_name="Nome",
+                            max_length=100,
+                            db_index=True,
+                            blank=True,
+                            null=True,)
+
     payment_type = models.CharField(
-        verbose_name="Payment Type",
+        verbose_name="Tipo de pagamento",
         max_length=100,
         choices=PAYMENT_TYPE_CHOICES,
         default='credit_card',
@@ -57,11 +63,15 @@ class PaymentMethod(TimeStampedModel):
     )
 
     class Meta:
-        verbose_name = "Payment Method"
-        verbose_name_plural = "Payment Methods"
+        verbose_name = "Método de pagamento"
+        verbose_name_plural = "Métodos de pagamento"
         indexes = [
             models.Index(fields=['payment_type']),
+            models.Index(fields=['name']),
         ]
+
+    def __str__(self):
+        return f"Método de pagamento {self.name or self.payment_type}"
 
 
 class PaymentStatus(models.TextChoices):
@@ -83,17 +93,18 @@ class Payment(TimeStampedModel, SoftDeletableModel):
     order = models.ForeignKey(
         Order,
         related_name="payments",
+        verbose_name="Pedido",
         on_delete=models.SET_NULL,
         null=True
     )
     payment_method = models.ForeignKey(
         PaymentMethod,
-        verbose_name="Payment Method",
+        verbose_name="Método de pagamento",
         related_name="payments",
         on_delete=models.PROTECT
     )
     amount = models.DecimalField(
-        verbose_name="Total Amount",
+        verbose_name="Preço total",
         max_digits=10,
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0.00')), MaxValueValidator(Decimal('999.99'))]
@@ -102,19 +113,19 @@ class Payment(TimeStampedModel, SoftDeletableModel):
         max_length=10,
         choices=PaymentStatus.choices,
         default=PaymentStatus.PENDING,
-        verbose_name="Payment Status"
+        verbose_name="Estado do pagamento"
     )
     used_coupons = models.ManyToManyField(
         PromotionCode,
         through='PaymentPromotionCode',
-        verbose_name="Applied Coupons",
+        verbose_name="Cupons aplicados",
         related_name='payments',
         blank=True
     )
 
     class Meta:
-        verbose_name = "Payment"
-        verbose_name_plural = "Payments"
+        verbose_name = "Pagamento"
+        verbose_name_plural = "Pagamentos"
         indexes = [
             models.Index(fields=['status']),
             models.Index(fields=['customer']),
@@ -124,12 +135,6 @@ class Payment(TimeStampedModel, SoftDeletableModel):
         super().clean()
         if self.amount <= 0:
             raise ValidationError('The payment amount must be positive.')
-
-    def refund(self):
-        """Process a refund for the payment."""
-        if self.status == PaymentStatus.COMPLETED:
-            self.status = PaymentStatus.REFUNDED
-            self.save(update_fields=['status'])
 
 
 class PaymentPromotionCode(models.Model):

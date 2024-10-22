@@ -47,9 +47,3 @@ def get_cart_items(request):
     # Calculate total price based on the data stored in the cookie
     total_price = sum(Decimal(item['total_price_product']) for item in cart_items)
     return cart_items, total_price
-
-
-# Save the cart items in the cookie
-def save_cart_items(response, cart_items):
-    response.set_cookie('cart', json.dumps(cart_items), max_age=3600*24*7)  # 1 week expiry
-    return response

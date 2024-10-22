@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from .models import About
 from products.models import Promotion
-from users.models import User, Address, PhoneNumber
+from users.models import User
 
 
 class PromotionSerializer(serializers.ModelSerializer):
@@ -66,8 +66,6 @@ class UserSerializer(serializers.ModelSerializer):
     date_joined = serializers.SerializerMethodField()
     last_login = serializers.SerializerMethodField()
     is_staff = serializers.SerializerMethodField()
-    phone_number = serializers.SerializerMethodField()
-    address = serializers.SerializerMethodField()
     is_active = serializers.SerializerMethodField()
     is_authenticated = serializers.SerializerMethodField()
 
@@ -79,10 +77,8 @@ class UserSerializer(serializers.ModelSerializer):
             'is_staff',
             'date_joined',
             'last_login',
-            'phone_number',
             'is_active',
             'is_authenticated',
-            'address',
             'full_name',
             'role_info',
             'role_icon'
@@ -127,14 +123,6 @@ class UserSerializer(serializers.ModelSerializer):
         if self.check_permission(obj):
             return obj.is_staff
 
-    def get_phone_number(self, obj):
-        if self.check_permission(obj):
-            return PhoneNumber.objects.get_selected_phone_number(obj)
-
-    def get_address(self, obj):
-        if self.check_permission(obj):
-            return Address.objects.get_selected_address(obj)
-
     def get_is_active(self, obj):
         if self.check_permission(obj):
             return obj.is_active
@@ -144,36 +132,36 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.is_authenticated
 
 
-class AddressSerializer(serializers.ModelSerializer):
-    absolute_url = serializers.SerializerMethodField()
-    remove_url = serializers.SerializerMethodField()
-    full_address = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Address
-        fields = ['id', 'postal_code', 'rua', 'number', 'complement', 'district', 'state', 'city', 'selected',
-                  'created', 'modified', 'full_address' ,'absolute_url', 'remove_url']
-
-    def get_absolute_url(self, obj):
-        return obj.get_absolute_url()
-
-    def get_remove_url(self, obj):
-        return obj.get_remove_url()
-
-    def get_full_address(self, obj):
-        return obj.get_full_address()
-
-
-class PhoneNumberSerializer(serializers.ModelSerializer):
-    absolute_url = serializers.SerializerMethodField()
-    remove_url = serializers.SerializerMethodField()
-
-    class Meta:
-        model = PhoneNumber
-        fields = ['id', 'number', 'selected', 'created', 'modified', 'absolute_url', 'absolute_url', 'remove_url']
-
-    def get_absolute_url(self, obj):
-        return obj.get_absolute_url()
-
-    def get_remove_url(self, obj):
-        return obj.get_remove_url()
+# class AddressSerializer(serializers.ModelSerializer):
+#     absolute_url = serializers.SerializerMethodField()
+#     remove_url = serializers.SerializerMethodField()
+#     full_address = serializers.SerializerMethodField()
+#
+#     class Meta:
+#         model = Address
+#         fields = ['id', 'postal_code', 'rua', 'number', 'complement', 'district', 'state', 'city', 'selected',
+#                   'created', 'modified', 'full_address' ,'absolute_url', 'remove_url']
+#
+#     def get_absolute_url(self, obj):
+#         return obj.get_absolute_url()
+#
+#     def get_remove_url(self, obj):
+#         return obj.get_remove_url()
+#
+#     def get_full_address(self, obj):
+#         return obj.get_full_address()
+#
+#
+# class PhoneNumberSerializer(serializers.ModelSerializer):
+#     absolute_url = serializers.SerializerMethodField()
+#     remove_url = serializers.SerializerMethodField()
+#
+#     class Meta:
+#         model = PhoneNumber
+#         fields = ['id', 'number', 'selected', 'created', 'modified', 'absolute_url', 'absolute_url', 'remove_url']
+#
+#     def get_absolute_url(self, obj):
+#         return obj.get_absolute_url()
+#
+#     def get_remove_url(self, obj):
+#         return obj.get_remove_url()

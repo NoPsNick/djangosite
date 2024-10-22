@@ -1,25 +1,27 @@
 from django.db.models import Q
-from django.shortcuts import redirect, get_object_or_404
+from django.shortcuts import redirect
+from django.urls import reverse_lazy, reverse
+from django.utils.decorators import method_decorator
 from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.contrib import messages
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, FormView
+from django.views.decorators.http import require_POST
 
+from payments.forms import PaymentForm
 from payments.services import create_payment
 from .models import Order
-from cart.services import get_cart_items
-from orders.services import create_order
+from cart.services import get_cart_items, save_cart
+from .services import create_order
+from pages.decorators import strict_rate_limit
 
 
+@method_decorator(strict_rate_limit(url_names=['orders:create_order']), name='dispatch')
 class CreateOrderView(LoginRequiredMixin, View):
+    @method_decorator(require_POST)
     def post(self, request, *args, **kwargs):
-        # Ensure the user is verified and has an address
-        if not request.user.address:
-            messages.error(request, "Por favor, adicione um endereço para criar um pedido.")
-            return redirect('cart:detail')
-
         # Get the cart items
         cart_items, total_price = get_cart_items(request)
 
@@ -32,14 +34,17 @@ class CreateOrderView(LoginRequiredMixin, View):
 
         try:
             # Call the create_order function
-            create_order(user=request.user, items_data=items_data)
+            order = create_order(user=request.user, items_data=items_data)
+            response = redirect(reverse('orders:order_detail', kwargs={'order_id': order.id}))
+            save_cart(response, {}) # Set the cart with an empty dict(clear the cart items)
             messages.success(request, "Pedido criado com sucesso!")
-            return redirect('orders:order_list')  # Redirect to order list or confirmation page
+            return response
         except ValidationError as e:
             messages.error(request, str(e))
-            return redirect('cart:detail')
+            return redirect(reverse('cart:detail'))
 
 
+@method_decorator(strict_rate_limit(url_names=['orders:order_list']), name='dispatch')
 class UserOrderListView(LoginRequiredMixin, TemplateView):
     template_name = 'orders/order_list.html'
 
@@ -80,23 +85,53 @@ class UserOrderListView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class CreatePaymentView(LoginRequiredMixin, View):
-    def post(self, request, *args, **kwargs):
-        # Get the order ID from the URL
-        order_id = kwargs.get('order_id')
-        payment_method = kwargs.get('payment_method')
+@method_decorator(strict_rate_limit(url_names=['orders:order_detail']), name='dispatch')
+class UserOrderDetailView(LoginRequiredMixin, TemplateView):
+    template_name = 'orders/order_detail.html'
 
-        # Fetch the order, ensuring the user is the customer, or the user is staff
-        order = get_object_or_404(Order, pk=order_id)
-        if not request.user.is_staff and order.customer != request.user:
-            messages.error(request, "Um erro ocorreu ao criar o pagamento.")
-            return redirect('orders:order_list')
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # Extract order_id from kwargs
+        order_id = kwargs.get('order_id')
+
+        # Fetch the cached order
+        order = Order.objects.get_cached_order(order_id=order_id, customer=user)
+
+        # Add order to the context
+        context['order'] = order
+        return context
+
+
+@method_decorator(strict_rate_limit(url_names=['orders:create_payment']), name='dispatch')
+class PaymentCreateView(LoginRequiredMixin, FormView):
+    template_name = 'orders/payment_form.html'
+    form_class = PaymentForm
+    success_url = reverse_lazy('orders:order_list')
+
+    def form_valid(self, form):
+        user = self.request.user
+        order_id = self.kwargs.get('order_id')  # Get the order ID from the URL
+        order = Order.objects.get(id=order_id, customer=user)
+
+        payment_method = form.cleaned_data['payment_method']
+        promo_codes = form.cleaned_data['promo_codes']
 
         try:
-            # Call the create_payment function
-            create_payment(user=request.user, order=order, payment_method=payment_method)
-            messages.success(request, "Pagamento criado com sucesso!")
-            return redirect('orders:order_list')  # Redirect to orders or payment success page
-        except Exception as e:
-            messages.error(request, f"Failed to create payment: {str(e)}")
-            return redirect('orders:order_list')
+            # Call the service function to create the payment
+            payment = create_payment(user=user, order=order, payment_method=payment_method, promo_codes=promo_codes)
+            messages.success(self.request, "Payment created successfully!")
+        except ValidationError as e:
+            # Handle any errors that occur during payment creation
+            messages.error(self.request, f"Payment failed: {str(e)}")
+            return self.form_invalid(form)
+
+        return super().form_valid(form)
+
+    def get_context_data(self, **kwargs):
+        # Call the base implementation first to get a context
+        context = super().get_context_data(**kwargs)
+        # Add your custom context variable
+        context['order_id'] = self.kwargs.get('order_id')
+        return context

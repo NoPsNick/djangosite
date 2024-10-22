@@ -8,19 +8,19 @@
 {% block content %}
     <div class="container my-3">
         <h1 class="fw-bold">Meu Carrinho</h1>
-            {% if cart_items %}
-                <table class="table carrinho">
-                    <thead>
-                        <tr class="bg-light">
-                            <th scope="col">Produto</th>
-                            <th scope="col">Quantidade</th>
-                            <th scope="col">Preço Unitário</th>
-                            <th scope="col">Preço Total</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in cart_items %}
+        {% if cart_items %}
+            <table class="table carrinho">
+                <thead>
+                    <tr class="bg-light">
+                        <th scope="col">Produto</th>
+                        <th scope="col">Quantidade</th>
+                        <th scope="col">Preço Unitário</th>
+                        <th scope="col">Preço Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cart_items %}
                         <tr>
                             <td class="align-middle">
                                 <a target="_blank" class="text-decoration-none" href="{{ item.product.url }}">
@@ -50,16 +50,16 @@
                                 </form>
                             </td>
                         </tr>
-                        {% endfor %}
-                        <tr class="bg-light">
-                            <td class="fw-bold">Total</td>
-                            <td></td>
-                            <td></td>
-                            <td class="fw-bold">R$ {{ total_price }}</td>
-                            <td></td>
-                        </tr>
-                    </tbody>
-                </table>
+                    {% endfor %}
+                    <tr class="bg-light">
+                        <td class="fw-bold">Total</td>
+                        <td></td>
+                        <td></td>
+                        <td class="fw-bold">R$ {{ total_price }}</td>
+                        <td></td>
+                    </tr>
+                </tbody>
+            </table>
             {% else %}
                 <p>O carrinho está vazio!</p>
             {% endif %}
@@ -70,7 +70,7 @@
                 {% if user.is_authenticated %}
                     <form action="{% url 'orders:create_order' %}" method="post" style="display:inline;">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-success {% if not cart_items or not user.address %}{% endif %}">
+                        <button type="submit" class="btn btn-success {% if not cart_items %}disabled{% endif %}">
                             Finalizar compra
                         </button>
                     </form>
@@ -80,6 +80,5 @@
                     </a>
                 {% endif %}
             </p>
-        </div>
     </div>
 {% endblock content %}

@@ -3,7 +3,7 @@ from django.core.cache import cache
 from django.db.models import Prefetch
 
 from .serializers import ProductSerializer, CategorySerializer, StockSerializer
-from .models import Category, Product
+from .models import Category, Product, Stock
 
 PRODUCT_SLUGS_KEY = 'product_slugs'
 CATEGORY_SLUGS_KEY = 'category_slugs'
@@ -82,9 +82,6 @@ def cache_product_list(products):
         set_cache(cache_key, product_data)
         product_slugs.append(product.slug)
 
-        if product.stock:
-            set_cache(f'stock_{product.slug}', StockSerializer(product.stock).data)
-
     # Cache the list of product slugs
     set_cache(PRODUCT_SLUGS_KEY, product_slugs)
 
@@ -127,7 +124,6 @@ def get_cached_category_slugs():
     return category_slugs
 
 
-# Update the product cache (called from both Product and Stock models)
 def update_product_cache(sender, instance, **kwargs):
     product_cache_key = f'product_{instance.slug}'
     stock_cache_key = f'stock_{instance.slug}'
@@ -135,8 +131,11 @@ def update_product_cache(sender, instance, **kwargs):
     # Cache serialized product and stock
     set_cache(product_cache_key, ProductSerializer(instance).data)
 
+    # Ensure that the stock instance is fully loaded and not an F expression
     if instance.stock:
-        set_cache(stock_cache_key, StockSerializer(instance.stock).data)
+        # Fetch the latest stock instance to avoid serialization issues
+        stock_instance = Stock.objects.get(id=instance.stock.id)
+        set_cache(stock_cache_key, StockSerializer(stock_instance).data)
 
     # Update the cached product slugs list
     product_slugs = get_cached_product_slugs()

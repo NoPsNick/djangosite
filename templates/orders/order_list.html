@@ -36,7 +36,7 @@
                                     <td>R$ {{ order.total_amount }}</td>
                                 {% endif %}
                                 <td>
-                                    NADA
+                                    <a href="{% url 'orders:order_detail' order_id=order.id %}">Ver Pedido</a>
                                 </td>
                             </tr>
                         {% endfor %}
