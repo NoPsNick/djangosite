@@ -1,57 +1,71 @@
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.core.cache import cache
 from django.conf import settings
 
+User = get_user_model()
+
+
 class OrderManager(models.Manager):
 
-    def get_cached_orders(self, customer):
+    def get_cached_orders(self, customer: User):
         """
         Retrieves the cached list of orders for a customer.
         Caches all orders in bulk if not cached.
         """
         from orders.serializers import OrderSerializer
-        cache_key = f'orders_{customer.id}_list'
-        orders = cache.get(cache_key)
+        cache_key = f'orders_{customer.id}_dict'
+        cached_orders = cache.get(cache_key)
 
-        if orders is None:
+        if cached_orders is None:
             orders_query_set = self.filter(customer=customer).order_by('-id')
-            serializer = OrderSerializer(orders_query_set, many=True)
-            orders = serializer.data
+            cached_orders = {}
 
-            # Cache the full list of orders
-            cache.set(cache_key, orders, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
-
-            # Cache each order individually after it has been serialized
             for order_instance in orders_query_set:
-                self._cache_single_order(order_instance)
+                order_data = OrderSerializer(order_instance).data
+                cached_orders[order_instance.id] = order_data
 
-        return orders
+            # Cache all orders as a dictionary with their IDs as keys
+            cache.set(cache_key, cached_orders, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
 
-    def get_cached_order(self, order_id, customer):
+        return list(cached_orders.values())
+
+    def get_cached_order(self, order_id, customer: User):
         """
         Retrieves a single order for a customer from cache.
         Falls back to database if not cached.
         """
-        cache_key = f'order_{customer.id}_{order_id}'
-        order = cache.get(cache_key)
+        cache_key = f'orders_{customer.id}_dict'
+        cached_orders = cache.get(cache_key)
+
+        if cached_orders is None:
+            # Cache miss for the bulk data, so populate it
+            self.get_cached_orders(customer)
+            cached_orders = cache.get(cache_key)  # Retrieve again after caching
+
+        # Retrieve the specific order by ID from the cached bulk data
+        order = cached_orders.get(order_id)
 
         if order is None:
-            # Fallback to querying the database if not found in cache
+            # Fallback to querying the database if the order is not found in cache
             order_instance = self.get(customer=customer, id=order_id)
             order = self._cache_single_order(order_instance)
 
         return order
 
     @staticmethod
-    def _cache_single_order(order):
+    def _cache_single_order(order_instace):
         """
-        Helper method to cache a single order after it has been fully serialized.
+        Helper method to add a single order to the cached bulk data if missing.
         """
-        from orders.serializers import OrderDetailSerializer
-        order_data = OrderDetailSerializer(order).data
+        from orders.serializers import OrderSerializer
+        cache_key = f'orders_{order_instace.customer.id}_dict'
+        cached_orders = cache.get(cache_key) or {}
 
-        # Ensure that the cache only stores fully serialized data
-        cache_key = f'order_{order.customer.id}_{order.id}'
-        cache.set(cache_key, order_data, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
+        order_data = OrderSerializer(order_instace).data
+        cached_orders[order_instace.id] = order_data
 
-        return order_data  # Return the fully serialized cached data
+        # Update the bulk cache with the new order data
+        cache.set(cache_key, cached_orders, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
+
+        return order_data

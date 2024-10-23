@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.shortcuts import redirect
 from django.urls import reverse_lazy, reverse
 from django.utils.decorators import method_decorator
@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 
 from payments.forms import PaymentForm
 from payments.services import create_payment
-from .models import Order
+from .models import Order, Item
 from cart.services import get_cart_items, save_cart
 from .services import create_order
 from pages.decorators import strict_rate_limit
@@ -53,7 +53,10 @@ class UserOrderListView(LoginRequiredMixin, TemplateView):
         search_query = self.request.GET.get('search')
 
         if self.request.user.is_staff:
-            orders_adm = Order.objects.all().order_by('-id')
+            # Use select_related for foreign keys and prefetch_related for reverse relations
+            orders_adm = Order.objects.select_related('customer').prefetch_related(
+                Prefetch('items', queryset=Item.objects.select_related('product'))
+            ).order_by('-id')
             if search_query:
                 orders_adm = orders_adm.filter(
                     Q(id__icontains=search_query) |

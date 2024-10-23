@@ -17,7 +17,7 @@ class UserPaymentListView(LoginRequiredMixin, TemplateView):
         search_query = self.request.GET.get('search')
 
         if self.request.user.is_staff:
-            payments_adm = Payment.objects.all().order_by('-id')
+            payments_adm = Payment.objects.select_related('payment_method').order_by('-id')
             if search_query:
                 payments_adm = payments_adm.filter(
                     Q(id__icontains=search_query) |

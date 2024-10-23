@@ -1,57 +1,73 @@
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.core.cache import cache
 from django.conf import settings
 
+User = get_user_model()
+
 
 class PaymentManager(models.Manager):
 
-    def get_cached_payments(self, customer):
+    def get_cached_payments(self, customer: User):
         """
         Retrieves the cached list of payments for a customer.
         Caches all payments in bulk if not cached.
         """
         from .serializers import PaymentSerializer
-        cache_key = f'payments_{customer.id}_list'
-        payments = cache.get(cache_key)
+        cache_key = f'payments_{customer.id}_dict'
+        cached_payments = cache.get(cache_key)
 
-        if payments is None:
+        if cached_payments is None:
             payments_query_set = self.filter(customer=customer).order_by('-id')
-            serializer = PaymentSerializer(payments_query_set, many=True)
-            payments = serializer.data
+            cached_payments = {}
 
-            # Cache the entire list of payments
-            cache.set(cache_key, payments, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
-
-            # Cache each payment individually
+            # Serialize and store each payment in a dictionary with payment ID as key
             for payment_instance in payments_query_set:
-                self._cache_single_payment(payment_instance)
+                payment_data = PaymentSerializer(payment_instance).data
+                cached_payments[payment_instance.id] = payment_data
 
-        return payments
+            # Cache all payments as a dictionary
+            cache.set(cache_key, cached_payments, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
 
-    def get_cached_payment(self, payment_id, customer):
+        return list(cached_payments.values())
+
+    def get_cached_payment(self, payment_id, customer: User):
         """
         Retrieves a single payment for a customer from cache.
         Falls back to database if not cached.
         """
-        cache_key = f'payment_{customer.id}_{payment_id}'
-        payment = cache.get(cache_key)
+        cache_key = f'payments_{customer.id}_dict'
+        cached_payments = cache.get(cache_key)
+
+        if cached_payments is None:
+            # If the bulk cache is missing, populate it
+            self.get_cached_payments(customer)
+            cached_payments = cache.get(cache_key)  # Retrieve again after populating the cache
+
+        # Retrieve the specific payment by ID from the cached bulk data
+        payment = cached_payments.get(payment_id)
 
         if payment is None:
-            # Fallback to querying the database if not found in cache
+            # Fallback to querying the database if the payment is not in cache
             payment_instance = self.get(customer=customer, id=payment_id)
             payment = self._cache_single_payment(payment_instance)
 
         return payment
 
     @staticmethod
-    def _cache_single_payment(payment):
+    def _cache_single_payment(payment_instance):
         """
-        Helper method to cache a single payment.
+        Helper method to add a single payment to the cached bulk data if it's missing.
         """
-        from .serializers import PaymentDetailSerializer
-        payment_data = PaymentDetailSerializer(payment).data
+        from .serializers import PaymentSerializer
+        cache_key = f'payments_{payment_instance.customer.id}_dict'
+        cached_payments = cache.get(cache_key) or {}
 
-        cache_key = f'payment_{payment.customer.id}_{payment.id}'
-        cache.set(cache_key, payment_data, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
+        # Serialize the payment data
+        payment_data = PaymentSerializer(payment_instance).data
+        cached_payments[payment_instance.id] = payment_data
 
-        return payment_data  # Return the cached data for consistency
+        # Update the bulk cache with the new payment data
+        cache.set(cache_key, cached_payments, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
+
+        return payment_data

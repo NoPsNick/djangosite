@@ -3,14 +3,15 @@ from orders.models import Order, Item
 from products.serializers import ProductSerializer
 
 
-class BaseOrderSerializer(serializers.ModelSerializer):
+class OrderSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     total_amount = serializers.SerializerMethodField()
     customer = serializers.SerializerMethodField()
+    products = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
-        fields = ['id', 'status', 'customer', 'total_amount']
+        fields = ['id', 'status', 'customer', 'total_amount', 'products']
 
     def get_total_amount(self, obj):
         return str(obj.get_total_amount())
@@ -21,10 +22,16 @@ class BaseOrderSerializer(serializers.ModelSerializer):
     def get_customer(self, obj):
         return obj.customer.first_name if obj.customer.first_name else obj.customer.username
 
+    def get_products(self, obj):
+        # Explicitly fetch the related items and products
+        items = obj.items.select_related('product').all()
 
-class OrderSerializer(BaseOrderSerializer):
-    class Meta(BaseOrderSerializer.Meta):
-        pass
+        # Fully serialize the items with the ItemSerializer
+        serializer = ItemSerializer(items, many=True)
+
+        # Return fully serialized data
+        return serializer.data
+
 
 
 class ItemSerializer(serializers.ModelSerializer):
@@ -38,20 +45,3 @@ class ItemSerializer(serializers.ModelSerializer):
 
     def get_full_price(self, obj):
         return str(obj.get_total_price())
-
-
-class OrderDetailSerializer(BaseOrderSerializer):
-    products = serializers.SerializerMethodField()
-
-    class Meta(BaseOrderSerializer.Meta):
-        fields = BaseOrderSerializer.Meta.fields + ['products']
-
-    def get_products(self, obj):
-        # Explicitly fetch the related items and products
-        items = obj.items.select_related('product').all()
-
-        # Fully serialize the items with the ItemSerializer
-        serializer = ItemSerializer(items, many=True)
-
-        # Return fully serialized data
-        return serializer.data
