@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db import models, transaction
-from django.db.models import F, Case, When, Value, BooleanField
+from django.db.models import F
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils import timezone
@@ -9,6 +9,7 @@ from autoslug import AutoSlugField
 from model_utils.models import TimeStampedModel, StatusModel
 
 from .managers import AvailableManager
+from users.models import RoleType
 
 User = get_user_model()
 
@@ -31,8 +32,11 @@ class Category(TimeStampedModel):
 
 class Product(TimeStampedModel):
     category = models.ForeignKey(
-        Category, related_name="products", on_delete=models.CASCADE
+        Category, related_name="products", on_delete=models.CASCADE, null=True, blank=True
     )
+    role_type = models.ForeignKey(RoleType, related_name="selling_roles", null=True, blank=True,
+                             on_delete=models.CASCADE)
+    is_role = models.BooleanField(default=False)
     name = models.CharField("Nome", max_length=255)
     slug = AutoSlugField(unique=True, always_update=True, populate_from="name")
     image = models.ImageField("Imagem", upload_to="products/%Y/%m/%d", blank=True)
@@ -53,6 +57,55 @@ class Product(TimeStampedModel):
             models.Index(fields=['is_available']),
             models.Index(fields=['price']),
         ]
+
+        constraints = [
+            # Impedir que produto tenha ambos (role_type e category) ou nenhum
+            models.CheckConstraint(
+                check=(
+                        models.Q(category__isnull=False, role_type__isnull=True) |
+                        models.Q(category__isnull=True, role_type__isnull=False)
+                ),
+                name="category_or_role_type"
+            ),
+            # Garante que 'role_type' só pode existir se is_role for True e vice-versa
+            models.CheckConstraint(
+                check=models.Q(is_role=True, role_type__isnull=False) | models.Q(is_role=False, role_type__isnull=True),
+                name="role_type_consistency"
+            ),
+        ]
+
+    def is_role_product(self):
+        """
+        Verifica se este produto está relacionado a um RoleType, ou seja, é um produto que corresponde a um cargo.
+        """
+        return self.role_type is not None
+
+    def clean(self):
+        super().clean()
+
+        # Verifica se o produto é um role e garante que 'role_type' seja obrigatório.
+        if self.is_role and not self.role_type:
+            raise ValidationError("Um produto do tipo 'cargo' deve ter um RoleType associado.")
+
+        # Caso contrário, se o produto não for 'cargo', o 'role_type' deve ser nulo.
+        if not self.is_role and self.role_type:
+            raise ValidationError("Somente produtos do tipo 'cargo' podem ter um RoleType.")
+
+        if self.role_type and self.category:
+            raise ValidationError("Um produto só pode ter um cargo OU categoria, não ambos.")
+
+        if self.role_type:
+            self.price = self.role_type.price
+
+        if not self.role_type and not self.category:
+            raise ValidationError("Um produto precisa ter uma catergoria OU um cargo, não ambos, mas obrigatório"
+                                  "um deles.")
+
+    def save(self, *args, **kwargs):
+        # Chamamos clean para garantir que as validações sejam aplicadas
+        self.clean()
+        self.is_role = self.is_role_product()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
@@ -279,7 +332,12 @@ class PromotionCode(TimeStampedModel):
         'Category', verbose_name="Categoria", on_delete=models.CASCADE,
         related_name='promotion_codes', null=True, blank=True
     )
+    role = models.ForeignKey(
+        RoleType, verbose_name="Cargo", on_delete=models.CASCADE,
+        related_name='promotion_codes', null=True, blank=True
+    )
     can_with_promotion = models.BooleanField("Pode ser usado com outra promoção?", default=False)
+    usable_in_roles = models.BooleanField("Pode ser usado em cargos?", default=False)
     discount_amount = models.DecimalField("Valor do desconto", max_digits=10, decimal_places=2, null=True,
                                           blank=True)
     discount_percentage = models.DecimalField("Porcentagem de desconto", max_digits=5, decimal_places=2,
@@ -302,6 +360,24 @@ class PromotionCode(TimeStampedModel):
             models.Index(fields=['status']),
 
         ]
+
+    def clean(self):
+        super().clean()
+
+        # Verifica se o código promocional está sendo aplicado a um cargo e se o produto está correto.
+        if self.usable_in_roles:
+            if not self.role:
+                raise ValidationError("Um código de promoção para cargos deve ter um Role associado.")
+            if self.product and not self.product.is_role:
+                raise ValidationError("O produto associado não é um cargo, mas este código é para cargos.")
+        else:
+            if self.role:
+                raise ValidationError("Códigos de promoção não aplicáveis a cargos não podem ter um Role associado.")
+
+        # Verifica se o código é aplicável a uma categoria ou produto sem conflito.
+        if self.product and self.category:
+            raise ValidationError(
+                "Um código de promoção deve ser aplicado a um produto ou a uma categoria, mas não a ambos.")
 
     def __str__(self):
         return self.code
@@ -335,10 +411,15 @@ class PromotionCode(TimeStampedModel):
 
         return True
 
+    @transaction.atomic
     def apply_discount(self, product, category=None):
         """
         Apply the discount to a product. Returns the discounted price.
         """
+        # Check if the product is a role and check if the code is applicable to the role
+        if getattr(product, "is_role", False):
+            if not self.usable_in_roles or (self.role and self.role != product.role_type):
+                raise ValidationError("Este código não é aplicável ao cargo deste produto.")
         if not self.product and not self.category:
             raise ValidationError("This code is not applicable to any product or category.")
         # Check if the code is applicable to the product or category
@@ -360,6 +441,7 @@ class PromotionCode(TimeStampedModel):
         else:
             raise ValidationError("No valid discount available for this code.")
 
+    @transaction.atomic
     def increment_usage(self, user=None):
         """
         Increment the usage count of the promotion code.
@@ -374,6 +456,7 @@ class PromotionCode(TimeStampedModel):
             promotion_code_usage = PromotionCodeUsage.objects.get_or_create(user=user, promotion_code=self)
             promotion_code_usage.user_usage_count += 1
 
+    @transaction.atomic
     def restore_usage(self, user=None):
         """
         Restore the usage count of the promotion code.
