@@ -54,7 +54,7 @@ class ProductListView(TemplateView):
             products = [
                 product for product in products
                 if search_query.lower() in product['name'].lower() or search_query.lower() in product[
-                    'description'].lower()
+                    'description'].lower() or search_query.lower() in product['price']
             ]
 
         # Paginate products

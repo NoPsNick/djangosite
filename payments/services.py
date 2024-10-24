@@ -3,8 +3,9 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.db.models import F, Sum
+from django.core.cache import cache
 
-from payments.models import Payment, PaymentPromotionCode, PaymentStatus, PaymentMethod
+from .models import Payment, PaymentPromotionCode, PaymentStatus, PaymentMethod
 from products.models import PromotionCode
 from orders.models import Order
 
@@ -111,40 +112,55 @@ def create_payment(user: User, order: Order, payment_method: PaymentMethod, prom
 
         payment.order.status = order.Waiting_payment
         payment.order.save(update_fields=['status'])
+
+    cache_key = payments_cache_key_builder(user.id)
+    cache.delete(cache_key) # Delete user's payments cache
     return payment
 
 
-@transaction.atomic
+
 def refund_payment(payment: Payment):
-    payment.status = PaymentStatus.REFUNDED
-    payment.save(update_fields=['status'])
+    with transaction.atomic():
+        payment.status = PaymentStatus.REFUNDED
+        payment.save(update_fields=['status'])
 
-    payment.order.status = Order.Cancelled
-    payment.order.is_paid = False
-    payment.order.save(update_fields=['status', 'is_paid'])
+        payment.order.status = Order.Cancelled
+        payment.order.is_paid = False
+        payment.order.save(update_fields=['status', 'is_paid'])
 
-    order_items = payment.order.items.select_related('product').all()
+        order_items = payment.order.items.select_related('product').all()
 
-    for item in order_items:
-        product = item.product
-        stock = product.stock
+        for item in order_items:
+            product = item.product
+            stock = product.stock
 
-        if stock:
-            stock.restore(quantity=item.quantity)
+            if stock:
+                stock.restore(quantity=item.quantity)
 
-    payments_promo_codes = payment.used_coupons.all()
+        payments_promo_codes = payment.used_coupons.all()
 
-    for payment_code in payments_promo_codes:
-        promo_code = payment_code.promotion_code
-        promo_code.restore_usage(user=payment.customer)
-        payment_code.delete()
+        for payment_code in payments_promo_codes:
+            promo_code = payment_code.promotion_code
+            promo_code.restore_usage(user=payment.customer)
+            payment_code.delete()
+
+    cache_key = payments_cache_key_builder(payment.customer.id)
+    cache.delete(cache_key)  # Delete user's payments cache
 
 
-@transaction.atomic
+
 def complete_payment(payment: Payment):
-    payment.status = PaymentStatus.COMPLETED
-    payment.save(update_fields=['status'])
+    with transaction.atomic():
+        payment.status = PaymentStatus.COMPLETED
+        payment.save(update_fields=['status'])
 
-    payment.order.status = Order.Finalized
-    payment.order.is_paid = True
-    payment.order.save(update_fields=['status', 'is_paid'])
+        payment.order.status = Order.Finalized
+        payment.order.is_paid = True
+        payment.order.save(update_fields=['status', 'is_paid'])
+
+    cache_key = payments_cache_key_builder(payment.customer.id)
+    cache.delete(cache_key)  # Delete user's payments cache
+
+
+def payments_cache_key_builder(user_id):
+    return f'payments_{user_id}_dict'

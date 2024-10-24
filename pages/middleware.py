@@ -90,6 +90,10 @@ class RateLimitMiddlewareBase:
 class GeneralRateLimitMiddleware(RateLimitMiddlewareBase):
     def __call__(self, request):
         user = request.user
+        if user.is_staff or user.is_superuser:
+            response = self.get_response(request)
+            return response
+
         ip = request.META.get('REMOTE_ADDR', 'unknown')
         hashed_ip = hash_ip(ip)
 

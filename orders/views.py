@@ -111,7 +111,7 @@ class UserOrderDetailView(LoginRequiredMixin, TemplateView):
 class PaymentCreateView(LoginRequiredMixin, FormView):
     template_name = 'orders/payment_form.html'
     form_class = PaymentForm
-    success_url = reverse_lazy('orders:order_list')
+    success_url = reverse_lazy('payments:payment_list')
 
     def form_valid(self, form):
         user = self.request.user
@@ -123,7 +123,7 @@ class PaymentCreateView(LoginRequiredMixin, FormView):
 
         try:
             # Call the service function to create the payment
-            payment = create_payment(user=user, order=order, payment_method=payment_method, promo_codes=promo_codes)
+            create_payment(user=user, order=order, payment_method=payment_method, promo_codes=promo_codes)
             messages.success(self.request, "Payment created successfully!")
         except ValidationError as e:
             # Handle any errors that occur during payment creation
@@ -133,8 +133,6 @@ class PaymentCreateView(LoginRequiredMixin, FormView):
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
-        # Call the base implementation first to get a context
         context = super().get_context_data(**kwargs)
-        # Add your custom context variable
         context['order_id'] = self.kwargs.get('order_id')
         return context

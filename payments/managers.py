@@ -2,6 +2,9 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.core.cache import cache
 from django.conf import settings
+from django.db.models import Prefetch
+
+from orders.models import Item
 
 User = get_user_model()
 
@@ -14,11 +17,21 @@ class PaymentManager(models.Manager):
         Caches all payments in bulk if not cached.
         """
         from .serializers import PaymentSerializer
-        cache_key = f'payments_{customer.id}_dict'
+        from .services import payments_cache_key_builder
+        cache_key = payments_cache_key_builder(customer.id)
         cached_payments = cache.get(cache_key)
 
         if cached_payments is None:
-            payments_query_set = self.filter(customer=customer).order_by('-id')
+            payments_query_set = self.filter(customer=customer).select_related(
+                'customer', # Fetch the customer from the Payment
+                'order', # Fetch the order from the Payment
+                'payment_method', # Fetch the payment method from the Payment
+            ).prefetch_related(
+                # Pre-fetch the payment order items(products)
+                Prefetch('order__items', queryset=Item.objects.select_related('product__category')),
+                'order__customer', # Pre-fetch the payment order
+                'used_coupons__codes' # Pre-fetch the coupons that were used.
+            ).order_by('-id')
             cached_payments = {}
 
             # Serialize and store each payment in a dictionary with payment ID as key
@@ -36,7 +49,8 @@ class PaymentManager(models.Manager):
         Retrieves a single payment for a customer from cache.
         Falls back to database if not cached.
         """
-        cache_key = f'payments_{customer.id}_dict'
+        from .services import payments_cache_key_builder
+        cache_key = payments_cache_key_builder(customer.id)
         cached_payments = cache.get(cache_key)
 
         if cached_payments is None:
@@ -49,7 +63,16 @@ class PaymentManager(models.Manager):
 
         if payment is None:
             # Fallback to querying the database if the payment is not in cache
-            payment_instance = self.get(customer=customer, id=payment_id)
+            payment_instance = self.filter(customer=customer, id=payment_id).select_related(
+                'customer', # Fetch the customer from the Payment
+                'order', # Fetch the order from the Payment
+                'payment_method', # Fetch the payment method from the Payment
+            ).prefetch_related(
+                # Pre-fetch the payment order items(products)
+                Prefetch('order__items', queryset=Item.objects.select_related('product__category')),
+                'order__customer', # Pre-fetch the payment order
+                'used_coupons__codes' # Pre-fetch the coupons that were used.
+            )
             payment = self._cache_single_payment(payment_instance)
 
         return payment
@@ -59,8 +82,9 @@ class PaymentManager(models.Manager):
         """
         Helper method to add a single payment to the cached bulk data if it's missing.
         """
+        from .services import payments_cache_key_builder
         from .serializers import PaymentSerializer
-        cache_key = f'payments_{payment_instance.customer.id}_dict'
+        cache_key = payments_cache_key_builder(payment_instance.customer.id)
         cached_payments = cache.get(cache_key) or {}
 
         # Serialize the payment data

@@ -36,6 +36,13 @@ class Order(TimeStampedModel, StatusModel):
         verbose_name = "pedido"
         verbose_name_plural = "pedidos"
 
+        indexes = [
+            models.Index(fields=['customer']),
+            models.Index(fields=['status']),
+            models.Index(fields=['modified']),
+            models.Index(fields=['is_paid']),
+        ]
+
     def __str__(self):
         return f"Order #{self.id} - {self.get_status_display()}"
 
@@ -56,6 +63,11 @@ class Item(models.Model):
     class Meta:
         verbose_name = "produto de pedido"
         verbose_name_plural = "produdos de pedidos"
+
+        indexes = [
+            models.Index(fields=['order']),
+            models.Index(fields=['product']),
+        ]
 
     def __str__(self):
         return f"Item {self.product.name} (Quantity: {self.quantity})"

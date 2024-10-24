@@ -43,6 +43,9 @@ def strict_rate_limit(url_names=None, rate_limit_time=None):
             if not user.is_authenticated:
                 return view_func(request, *args, **kwargs)
 
+            if user.is_staff or user.is_superuser:
+                return view_func(request, *args, **kwargs)
+
             # Get the current URL path
             current_path = request.path
             # If URL names are provided, resolve them to paths and check if the current path matches

@@ -1,5 +1,4 @@
 from django.utils import timezone
-from .models import Role
 
 
 class RolePermissionService:
@@ -38,7 +37,7 @@ class RolePermissionService:
             self.add_role_permissions(user, new_role.role_type)
 
         user.role = new_role
-        user.save()
+        user.save(update_fields=['role'])
 
     def verify_role_status(self, user):
         """
@@ -47,18 +46,19 @@ class RolePermissionService:
         if user.role and not user.role.is_expired():
             # The role is active, ensure permissions are in place
             self.add_role_permissions(user, user.role.role_type)
-        else:
+        elif user.role and user.role.is_expired():
             # The role is expired, remove permissions
             self.remove_role_permissions(user, user.role.role_type)
             user.role = None  # Optionally set the role to None if expired
-            user.save()
+            user.save(update_fields=['role'])
 
     def expire_roles(self):
         """
         Check all roles and expire those that have passed their expiration date.
         """
+        from .models import Role
         expired_roles = Role.objects.filter(expires_at__lte=timezone.now(), status=Role.ATIVO)
         for role in expired_roles:
             role.status = Role.EXPIRADO
-            role.save()
+            role.save(update_fields=['status'])
             self.remove_role_permissions(role.user, role.role_type)

@@ -24,12 +24,8 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class StockSerializer(serializers.ModelSerializer):
-    serialized_product = serializers.SerializerMethodField()
+    product = ProductSerializer()
 
     class Meta:
         model = Stock
-        fields = ['serialized_product', 'units']
-
-    def get_serialized_product(self, obj):
-        from .services import get_product_from_cache
-        return get_product_from_cache(obj.product.slug)
+        fields = ['product', 'units']

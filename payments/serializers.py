@@ -16,11 +16,18 @@ class PaymentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'amount']
 
     def get_payment_method(self, obj):
-        return obj.payment_method.name.capitalize() if obj.payment_method.name else (
-            obj.payment_method.payment_type.capitalize())
+        # Aqui, utilizamos diretamente o campo pré-buscado
+        if hasattr(obj, 'payment_method'):
+            return obj.payment_method.name.capitalize() if obj.payment_method.name else (
+                obj.payment_method.payment_type.capitalize()
+            )
+        return None
 
     def get_customer(self, obj):
-        return obj.customer.first_name if obj.customer.first_name else obj.customer.username
+        # Acessar customer diretamente evita consultas extras
+        if hasattr(obj, 'customer'):
+            return obj.customer.first_name if obj.customer.first_name else obj.customer.username
+        return None
 
     def get_status(self, obj):
         return obj.get_status_display()
@@ -28,3 +35,4 @@ class PaymentSerializer(serializers.ModelSerializer):
     def get_used_coupons(self, obj):
         coupons = obj.used_coupons.all()
         return [coupon.code for coupon in coupons]
+

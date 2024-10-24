@@ -21,6 +21,10 @@ class Category(TimeStampedModel):
         verbose_name = "categoria"
         verbose_name_plural = "categorias"
 
+        indexes = [
+            models.Index(fields=['name']),
+        ]
+
     def __str__(self):
         return self.name
 
@@ -43,6 +47,12 @@ class Product(TimeStampedModel):
         ordering = ("-created",)
         verbose_name = "produto"
         verbose_name_plural = "produtos"
+
+        indexes = [
+            models.Index(fields=['category']),
+            models.Index(fields=['is_available']),
+            models.Index(fields=['price']),
+        ]
 
     def __str__(self):
         return self.name
@@ -91,6 +101,10 @@ class Stock(TimeStampedModel):
         ordering = ("-created",)
         verbose_name = "estoque"
         verbose_name_plural = "estoques"
+
+        indexes = [
+            models.Index(fields=['product']),
+        ]
 
     def __str__(self):
         return f"{self.product.name} - {self.units} unidades"
@@ -240,6 +254,12 @@ class Promotion(StatusModel, TimeStampedModel):
         verbose_name = "promoção"
         verbose_name_plural = "promoções"
 
+        indexes = [
+            models.Index(fields=['product']),
+            models.Index(fields=['status']),
+            models.Index(fields=['starts_at']),
+        ]
+
 
 class PromotionCode(TimeStampedModel):
     name = models.CharField('Nome', max_length=255, unique=True)
@@ -275,6 +295,13 @@ class PromotionCode(TimeStampedModel):
         ordering = ['-created']
         verbose_name = "Código Promocional"
         verbose_name_plural = "Códigos Promocionais"
+
+        indexes = [
+            models.Index(fields=['product']),
+            models.Index(fields=['category']),
+            models.Index(fields=['status']),
+
+        ]
 
     def __str__(self):
         return self.code
@@ -378,6 +405,11 @@ class PromotionCodeUsage(TimeStampedModel):
         ]
         verbose_name = "Uso do Código Promocional"
         verbose_name_plural = "Usos de Códigos Promocionais"
+
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['promotion_code']),
+        ]
 
     def __str__(self):
         return f"{self.user} usou {self.promotion_code}"

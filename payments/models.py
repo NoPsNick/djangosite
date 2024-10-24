@@ -131,6 +131,8 @@ class Payment(TimeStampedModel, SoftDeletableModel):
         indexes = [
             models.Index(fields=['status']),
             models.Index(fields=['customer']),
+            models.Index(fields=['order']),
+            models.Index(fields=['modified']),
         ]
 
     def clean(self):

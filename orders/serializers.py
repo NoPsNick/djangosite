@@ -7,7 +7,7 @@ class OrderSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     total_amount = serializers.SerializerMethodField()
     customer = serializers.SerializerMethodField()
-    products = serializers.SerializerMethodField()
+    products = serializers.SerializerMethodField()  # Use MethodField to customize product data
 
     class Meta:
         model = Order
@@ -23,15 +23,9 @@ class OrderSerializer(serializers.ModelSerializer):
         return obj.customer.first_name if obj.customer.first_name else obj.customer.username
 
     def get_products(self, obj):
-        # Explicitly fetch the related items and products
-        items = obj.items.select_related('product').all()
-
-        # Fully serialize the items with the ItemSerializer
+        items = obj.items.all()
         serializer = ItemSerializer(items, many=True)
-
-        # Return fully serialized data
         return serializer.data
-
 
 
 class ItemSerializer(serializers.ModelSerializer):

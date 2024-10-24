@@ -42,11 +42,10 @@ def create_order(user, items_data):
                 quantity=quantity
             )
         order.save()
-        cache_key = f'orders_{user}_list'
-        cache.delete(cache_key)  # Clear the user's order list cache
-
-        # Optionally, you can also clear any other cached data related to the order
-        cache_key_single_order = f'order_{user}_{order.id}'
-        cache.delete(cache_key_single_order)  # Clear cache for individual order
+        cache_key = orders_cache_key_builder(user.id)
+        cache.delete(cache_key)  # Clear the user's orders cache
 
     return order
+
+def orders_cache_key_builder(user_id):
+    return f'orders_{user_id}_dict'
