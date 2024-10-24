@@ -43,10 +43,9 @@ class ProductListView(TemplateView):
                 products = [product for product in products if product['category'] == category_slug]
 
         # Filter products by product slug if provided in the query params
-        product_slug = self.request.GET.get('slug')
-        if product_slug:
-            product = get_product_from_cache(product_slug)
-            products = [product] if product else []
+        roles = self.request.GET.get('roles')
+        if roles:
+            products = [product for product in products if product['is_role']]
 
         # Filter products by search query if provided
         search_query = self.request.GET.get('search')
@@ -76,20 +75,6 @@ class ProductListView(TemplateView):
         return context
 
 
-class ProductDetailAPIView(APIView):
-    def get(self, request, slug, *args, **kwargs):
-        product = cache.get(f'product_{slug}')
-        if not product:
-            try:
-                product = Product.objects.get(slug=slug)
-                cache.set(f'product_{slug}', product)
-            except Product.DoesNotExist:
-                return Response({'detail': 'Produto não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = ProductSerializer(product, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
 class ProductDetailView(TemplateView):
     template_name = 'products/product_detail.html'
     extra_context = {"form": CartAddProductForm()}
@@ -104,6 +89,20 @@ class ProductDetailView(TemplateView):
 
         context['product'] = product
         return context
+
+
+class ProductDetailAPIView(APIView):
+    def get(self, request, slug, *args, **kwargs):
+        product = cache.get(f'product_{slug}')
+        if not product:
+            try:
+                product = Product.objects.get(slug=slug)
+                cache.set(f'product_{slug}', product)
+            except Product.DoesNotExist:
+                return Response({'detail': 'Produto não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ProductSerializer(product, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @method_decorator(restrict_to_server, name='dispatch')

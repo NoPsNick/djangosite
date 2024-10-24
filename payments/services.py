@@ -98,13 +98,13 @@ def create_payment(user: User, order: Order, payment_method: PaymentMethod, prom
         # Handle stock and finalize payment creation
         for item in order_items:
             product = item.product
-            stock = product.stock
+            stock = getattr(product, 'stock', None)
 
-            if stock and not stock.can_sell(item.quantity):
-                raise ValidationError(f"Not enough stock for product {product.name}")
-
-            # Reduce stock quantity in an atomic transaction
-            stock.sell(quantity=item.quantity)
+            if stock:
+                if not stock.can_sell(item.quantity):
+                    raise ValidationError(f"Not enough stock for product {product.name}")
+                # Reduce stock quantity in an atomic transaction
+                stock.sell(quantity=item.quantity)
 
         # Increment usage count for the valid promo codes
         for promo_code in valid_promo_codes:
@@ -114,28 +114,31 @@ def create_payment(user: User, order: Order, payment_method: PaymentMethod, prom
         payment.order.save(update_fields=['status'])
 
     cache_key = payments_cache_key_builder(user.id)
-    cache.delete(cache_key) # Delete user's payments cache
+    cache.delete(cache_key)  # Delete user's payments cache
     return payment
 
 
-
 def refund_payment(payment: Payment):
+    from orders.models import Order
     with transaction.atomic():
         payment.status = PaymentStatus.REFUNDED
         payment.save(update_fields=['status'])
-
-        payment.order.status = Order.Cancelled
-        payment.order.is_paid = False
-        payment.order.save(update_fields=['status', 'is_paid'])
 
         order_items = payment.order.items.select_related('product').all()
 
         for item in order_items:
             product = item.product
-            stock = product.stock
+            stock = getattr(product, 'stock', None)
 
             if stock:
-                stock.restore(quantity=item.quantity)
+                if payment.order.status == Order.Waiting_payment:
+                    stock.restore_hold(quantity=item.quantity)
+                else:
+                    stock.restore(quantity=item.quantity)
+
+        payment.order.status = Order.Cancelled
+        payment.order.is_paid = False
+        payment.order.save(update_fields=['status', 'is_paid'])
 
         payments_promo_codes = payment.used_coupons.all()
 
@@ -148,9 +151,17 @@ def refund_payment(payment: Payment):
     cache.delete(cache_key)  # Delete user's payments cache
 
 
-
-def complete_payment(payment: Payment):
+def finish_successful_payment(payment: Payment):
     with transaction.atomic():
+        order_items = payment.order.items.select_related('product').all()
+
+        for item in order_items:
+            product = item.product
+            stock = getattr(product, 'stock', None)
+
+            if stock:
+                stock.successful_sell(quantity=item.quantity)
+
         payment.status = PaymentStatus.COMPLETED
         payment.save(update_fields=['status'])
 

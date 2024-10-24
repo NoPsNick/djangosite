@@ -5,7 +5,7 @@ from .models import Category, Product, Stock
 from products.models import Promotion
 
 
-class EstoqueInline(admin.TabularInline):
+class StockInline(admin.TabularInline):
     model = Stock
     max_num = 1
     extra = 0
@@ -29,11 +29,18 @@ class ProductAdmin(admin.ModelAdmin):
     ]
     list_filter = ["is_available", "created", "modified"]
     list_editable = ["price", "is_available"]
-    inlines = [EstoqueInline]
+    inlines = [StockInline]
+
+    def save_model(self, request, obj, form, change):
+        # Aqui você pode garantir que o objeto seja criado primeiro
+        if not obj.pk:
+            # Se o objeto ainda não existir (caso de criação), salve-o primeiro
+            obj.save()
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Stock)
-class EstoqueAdmin(admin.ModelAdmin):
+class StockAdmin(admin.ModelAdmin):
     list_display = [
         "product",
         "units",
@@ -42,6 +49,13 @@ class EstoqueAdmin(admin.ModelAdmin):
         "modified",
     ]
     list_filter = ["units", "units_sold", "created", "modified"]
+
+    def save_model(self, request, obj, form, change):
+        # Aqui você pode garantir que o objeto seja criado primeiro
+        if not obj.pk:
+            # Se o objeto ainda não existir (caso de criação), salve-o primeiro
+            obj.save()
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Promotion)

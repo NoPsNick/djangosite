@@ -21,7 +21,8 @@ def get_product_from_cache(slug):
 
     if not product_data:
         try:
-            product = Product.objects.prefetch_related(
+            # Fetch role_type to minimize queries
+            product = Product.objects.select_related('role_type').prefetch_related(
                 Prefetch('stock')  # Prefetch related stock to minimize queries
             ).get(slug=slug)
 
@@ -30,7 +31,7 @@ def get_product_from_cache(slug):
             set_cache(cache_key, product_data)
 
             # Cache stock information if it exists
-            if product.stock:
+            if getattr(product, 'stock', None):
                 set_cache(f'stock_{slug}', StockSerializer(product.stock).data)
 
         except Product.DoesNotExist:
@@ -47,7 +48,7 @@ def get_stock_from_cache(slug):
     if stock_data is None:
         try:
             product = Product.objects.prefetch_related('stock').get(slug=slug)
-            if product.stock:
+            if getattr(product, 'stock', None):
                 stock_data = StockSerializer(product.stock).data
                 set_cache(stock_cache_key, stock_data)
         except Product.DoesNotExist:
@@ -105,7 +106,7 @@ def get_cached_product_slugs():
     product_slugs = cache.get(PRODUCT_SLUGS_KEY)
 
     if product_slugs is None:
-        products = Product.objects.all().order_by('-id')
+        products = Product.objects.select_related('category', 'role_type').order_by('-id')
         cache_product_list(products)
         product_slugs = [product.slug for product in products]
 
@@ -128,16 +129,18 @@ def update_product_cache(sender, instance, **kwargs):
     product_cache_key = f'product_{instance.slug}'
     stock_cache_key = f'stock_{instance.slug}'
 
-    # Cache serialized product and stock
+    # Cache serialized product
     set_cache(product_cache_key, ProductSerializer(instance).data)
 
-    # Ensure that the stock instance is fully loaded and not an F expression
-    if instance.stock:
-        # Fetch the latest stock instance to avoid serialization issues
-        stock_instance = Stock.objects.get(id=instance.stock.id)
+    # Verifica se o Stock foi criado
+    if hasattr(instance, 'stock'):
+        try:
+            stock_instance = Stock.objects.select_for_update().get(id=instance.stock.id)
+        except Stock.DoesNotExist:
+            stock_instance = instance.stock
         set_cache(stock_cache_key, StockSerializer(stock_instance).data)
 
-    # Update the cached product slugs list
+    # Atualiza a lista de slugs de produtos em cache
     product_slugs = get_cached_product_slugs()
     if instance.slug not in product_slugs:
         product_slugs.append(instance.slug)

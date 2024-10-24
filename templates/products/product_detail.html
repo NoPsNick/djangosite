@@ -18,7 +18,8 @@
             </div>
             <div class="col-lg-9">
                 <h1 class="fw-bold">{{ product.name }}</h1>
-                <h2>R$ {{ product.price }}</h2>
+                <h4>R$ {{ product.price }}</h4>
+                <h5> Dias de vigência: {{ product.role.effective_days }}</h5>
                 <div class="mt-3">{{ product.description|linebreaksbr }}</div>
                 <form class="mt-3" action="{% url 'cart:cart_add' slug=product.slug %}" method="post">
                     <div class="mb-3">

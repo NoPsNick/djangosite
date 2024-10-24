@@ -61,7 +61,7 @@ class OrderManager(models.Manager):
         if order is None:
             # Fallback to querying the database if the order is not found in cache
             order_instance = self.filter(customer=customer, id=order_id).select_related('customer').prefetch_related(
-                Prefetch('items', queryset=Item.objects.select_related('product'))
+                Prefetch('items', queryset=Item.objects.select_related('product__category, product__role_type')),
             ).order_by('-id')
             order = self._cache_single_order(order_instance)
 

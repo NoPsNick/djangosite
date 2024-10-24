@@ -1,20 +1,36 @@
 from rest_framework import serializers
+
+from users.models import RoleType
 from .models import Product, Category, Stock
 
 
 class ProductSerializer(serializers.ModelSerializer):
     link_absoluto = serializers.SerializerMethodField()
     category = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'description', 'price', 'is_available', 'image', 'slug', 'link_absoluto', 'category']
+        fields = ['id', 'name', 'description', 'price', 'is_available', 'image', 'slug', 'link_absoluto', 'category',
+                  'role', 'is_role']
 
     def get_link_absoluto(self, obj):
         return obj.get_absolute_url()
 
     def get_category(self, obj):
-        return obj.category.slug
+        if obj.category is not None:
+            return obj.category.slug
+        return None
+
+    def get_role(self, obj):
+        if obj.role_type is not None:
+            return RoleTypeSerializer(obj.role_type).data
+
+
+class RoleTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoleType
+        fields = ['id', 'name', 'effective_days']
 
 
 class CategorySerializer(serializers.ModelSerializer):

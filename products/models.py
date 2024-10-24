@@ -13,6 +13,7 @@ from users.models import RoleType
 
 User = get_user_model()
 
+
 class Category(TimeStampedModel):
     name = models.CharField("Nome", max_length=255, unique=True)
     slug = AutoSlugField(unique=True, always_update=True, populate_from="name")
@@ -35,7 +36,7 @@ class Product(TimeStampedModel):
         Category, related_name="products", on_delete=models.CASCADE, null=True, blank=True
     )
     role_type = models.ForeignKey(RoleType, related_name="selling_roles", null=True, blank=True,
-                             on_delete=models.CASCADE)
+                                  on_delete=models.CASCADE)
     is_role = models.BooleanField(default=False)
     name = models.CharField("Nome", max_length=255)
     slug = AutoSlugField(unique=True, always_update=True, populate_from="name")
@@ -48,7 +49,6 @@ class Product(TimeStampedModel):
     available = AvailableManager()
 
     class Meta:
-        ordering = ("-created",)
         verbose_name = "produto"
         verbose_name_plural = "produtos"
 
@@ -83,20 +83,28 @@ class Product(TimeStampedModel):
     def clean(self):
         super().clean()
 
-        # Verifica se o produto é um role e garante que 'role_type' seja obrigatório.
+        # Verifica se o produto é um role e garante que 'role_type' seja obrigatório
         if self.is_role and not self.role_type:
             raise ValidationError("Um produto do tipo 'cargo' deve ter um RoleType associado.")
 
-        # Caso contrário, se o produto não for 'cargo', o 'role_type' deve ser nulo.
+        # Caso contrário, se o produto não for 'cargo', o 'role_type' deve ser nulo
         if not self.is_role and self.role_type:
             raise ValidationError("Somente produtos do tipo 'cargo' podem ter um RoleType.")
 
+        # Um produto não pode ter ambos, categoria e 'role_type'
         if self.role_type and self.category:
             raise ValidationError("Um produto só pode ter um cargo OU categoria, não ambos.")
 
+        # Verificação adicional do 'role_type'
         if self.role_type:
+            if self.role_type.staff:
+                raise ValidationError("Um produto não poder ser um cargo de staff")
+            # Preço, Nome e Descrição do produto serão iguais às do RoleType
             self.price = self.role_type.price
+            self.name = self.role_type.name
+            self.description = self.role_type.description
 
+        # Um produto não pode ficar sem category OU sem 'role_type', sendo obrigatório ter um
         if not self.role_type and not self.category:
             raise ValidationError("Um produto precisa ter uma catergoria OU um cargo, não ambos, mas obrigatório"
                                   "um deles.")
@@ -150,6 +158,12 @@ class Stock(TimeStampedModel):
         help_text="Quantidade de unidades vendidas.",
     )
 
+    units_hold = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Quantidade vendida em estágio de confirmação",
+        help_text="Quantidade de unidades vendidas que o pagamento não foi confirmado ainda.",
+    )
+
     class Meta:
         ordering = ("-created",)
         verbose_name = "estoque"
@@ -166,7 +180,10 @@ class Stock(TimeStampedModel):
         from .services import update_product_cache
 
         # Update product availability based on stock
-        updated_stock = Stock.objects.get(id=self.id)
+        try:
+            updated_stock = Stock.objects.select_for_update().get(id=self.id)
+        except Stock.DoesNotExist:
+            updated_stock = self
 
         self.product.is_available = updated_stock.units > 0
         self.product.save(update_fields=['is_available'])
@@ -192,12 +209,37 @@ class Stock(TimeStampedModel):
 
         # Update the stock and units sold atomically
         stock.units = F('units') - quantity
-        stock.units_sold = F('units_sold') + quantity
-        stock.save(update_fields=['units', 'units_sold'])
+        stock.units_hold = F('units_hold') + quantity
+        stock.save(update_fields=['units', 'units_hold'])
 
         # After the update, fetch the updated units from the database
         updated_stock = Stock.objects.get(id=stock.id)
-        available_units = updated_stock.units  # This will be an integer
+        available_units = updated_stock.units
+
+        # Set product availability based on the updated units
+        stock.product.is_available = available_units > 0
+        stock.product.save(update_fields=['is_available'])
+
+        # Only update cache after transaction is committed
+        transaction.on_commit(lambda: update_product_cache(sender=updated_stock, instance=updated_stock.product))
+
+    @transaction.atomic()
+    def successful_sell(self, quantity=1):
+        from .services import update_product_cache
+        """
+        Safely reduce stock units_hold and increase units_sold using "transaction.atomic"
+        and select_for_update to avoid race conditions.
+        """
+        stock = Stock.objects.select_for_update().get(id=self.id)
+
+        # Update the stock's units_sold and units_hold atomically
+        stock.units_sold = F('units_sold') + quantity
+        stock.units_hold = F('units_hold') - quantity
+        stock.save(update_fields=['units_sold', 'units_hold'])
+
+        # After the update, fetch the updated units from the database
+        updated_stock = Stock.objects.get(id=stock.id)
+        available_units = updated_stock.units
 
         # Set product availability based on the updated units
         stock.product.is_available = available_units > 0
@@ -219,6 +261,23 @@ class Stock(TimeStampedModel):
         stock.units = F('units') + quantity
         stock.units_sold = F('units_sold') - quantity
         stock.save(update_fields=['units', 'units_sold'])
+
+        # Only update cache after transaction is committed
+        transaction.on_commit(lambda: update_product_cache(sender=self, instance=self.product))
+
+    @transaction.atomic
+    def restore_hold(self, quantity=1):
+        from .services import update_product_cache
+        """
+        Safely restore stock and reduce units_sold using "transaction.atomic"
+        and select_for_update to avoid race conditions.
+        """
+        stock = Stock.objects.select_for_update().get(id=self.id)
+
+        # Restore units and adjust units_sold atomically
+        stock.units = F('units') + quantity
+        stock.units_sold = F('units_hold') - quantity
+        stock.save(update_fields=['units', 'units_hold'])
 
         # Only update cache after transaction is committed
         transaction.on_commit(lambda: update_product_cache(sender=self, instance=self.product))
@@ -245,7 +304,6 @@ class Promotion(StatusModel, TimeStampedModel):
     changed_price = models.DecimalField("Preço em promoção", max_digits=10, decimal_places=2)
     original_price = models.DecimalField("Preço original", max_digits=10, decimal_places=2, blank=True,
                                          null=True)
-
 
     def clean(self):
         super().clean()

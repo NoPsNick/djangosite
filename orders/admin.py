@@ -1,14 +1,32 @@
 from django.contrib import admin
 
-from orders.models import Item, Order
+from .forms import ItemForm, OrderForm
+from .models import Item, Order
 
 
-# Register your models here.
+class ItemInline(admin.TabularInline):
+    model = Item
+    extra = 1
+    form = ItemForm
+    raw_id_fields = ['product']
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('product')
+
+
 @admin.register(Item)
-class OrderAdmin(admin.ModelAdmin):
-    pass
+class ItemAdmin(admin.ModelAdmin):
+    ordering = []
+    form = ItemForm
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('product')
 
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    pass
+    form = OrderForm
+    raw_id_fields = ['customer']
+    inlines = [ItemInline]
