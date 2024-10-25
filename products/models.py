@@ -24,7 +24,7 @@ class Category(TimeStampedModel):
         verbose_name_plural = "categorias"
 
         indexes = [
-            models.Index(fields=['name']),
+            models.Index(fields=['slug']),
         ]
 
     def __str__(self):
@@ -49,13 +49,15 @@ class Product(TimeStampedModel):
     available = AvailableManager()
 
     class Meta:
+        ordering = ["-modified"]
         verbose_name = "produto"
         verbose_name_plural = "produtos"
 
         indexes = [
-            models.Index(fields=['category']),
             models.Index(fields=['is_available']),
-            models.Index(fields=['price']),
+            models.Index(fields=['name']),
+            models.Index(fields=['slug']),
+            models.Index(fields=['category']),
         ]
 
         constraints = [
@@ -367,8 +369,6 @@ class Promotion(StatusModel, TimeStampedModel):
 
         indexes = [
             models.Index(fields=['product']),
-            models.Index(fields=['status']),
-            models.Index(fields=['starts_at']),
         ]
 
 
@@ -415,8 +415,6 @@ class PromotionCode(TimeStampedModel):
         indexes = [
             models.Index(fields=['product']),
             models.Index(fields=['category']),
-            models.Index(fields=['status']),
-
         ]
 
     def clean(self):

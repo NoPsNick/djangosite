@@ -124,6 +124,7 @@ class RoleType(TimeStampedModel):
         return f"{self.name} - {self.get_currency_display()}"
 
     class Meta:
+        ordering = ["-modified"]
         verbose_name = "tipo de cargo"
         verbose_name_plural = "tipos de cargo"
 
@@ -169,6 +170,7 @@ class Role(StatusModel, TimeStampedModel):
         return f"{self.user.username} - {self.role_type.name} ({self.get_status_display()})"
 
     class Meta:
+        ordering = ["-modified"]
         verbose_name = "cargo"
         verbose_name_plural = "cargos"
 
@@ -230,5 +232,11 @@ class User(AbstractUser):
     #     return True
 
     class Meta:
+        ordering = ['username']
         verbose_name = "usuário"
         verbose_name_plural = "usuários"
+
+        indexes = [
+            models.Index(fields=['id']),
+            models.Index(fields=['username']),
+        ]

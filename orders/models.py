@@ -33,6 +33,7 @@ class Order(TimeStampedModel, StatusModel):
     objects = OrderManager()
 
     class Meta:
+        ordering = ["-modified"]
         verbose_name = "pedido"
         verbose_name_plural = "pedidos"
 
