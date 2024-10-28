@@ -1,6 +1,5 @@
 from django.contrib import admin
 from .models import ExternalApiResponse, PaymentMethod, Payment, PaymentPromotionCode
-from django.utils.translation import gettext_lazy as _
 
 
 @admin.register(ExternalApiResponse)

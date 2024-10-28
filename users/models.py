@@ -146,6 +146,7 @@ class Role(StatusModel, TimeStampedModel):
     expires_at = models.DateTimeField(blank=True, null=True, db_index=True)
 
     def save(self, *args, **kwargs):
+        self.clean()
         # Set expiration date if not set yet
         if not self.expires_at:
             self.expires_at = timezone.now() + self.role_type.effective_days

@@ -2,6 +2,7 @@ from django.contrib.auth.models import UserManager
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 
+
 from users.services import RolePermissionService
 
 
@@ -65,7 +66,7 @@ class CachedUserManager(UserManager):
             if not user.is_active:
                 raise PermissionDenied("User account is disabled")
             cache.set(cache_key, user, self.CACHE_TIMEOUT)
-        RolePermissionService().verify_role_status(user)
+            RolePermissionService().verify_role_status(user)
         return user
 
     def update(self, user, *args, **kwargs):

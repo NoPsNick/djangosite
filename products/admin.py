@@ -47,7 +47,6 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ['name', 'slug']
     ordering = ['name']
     readonly_fields = ['created', 'modified']
-    prepopulated_fields = {'slug': ('name',)}
 
 
 @admin.register(Stock)

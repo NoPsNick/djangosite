@@ -1,5 +1,4 @@
 from django.views.generic import TemplateView
-from django.core.cache import cache
 from django.utils.decorators import method_decorator
 from django.core.exceptions import PermissionDenied
 

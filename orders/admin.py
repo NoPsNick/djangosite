@@ -25,7 +25,7 @@ class ItemAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
-        return queryset.select_related('order', 'product').order_by('-modified')
+        return queryset.select_related('order', 'product').order_by('-id')
 
     def get_total_price(self, obj):
         return obj.get_total_price()
@@ -42,7 +42,7 @@ class OrderAdmin(admin.ModelAdmin):
     search_fields = ['customer__username', 'id']
     readonly_fields = ['status', 'created', 'modified']
     inlines = [ItemInline]
-    actions = ['mark_as_paid']
+    # actions = ['mark_as_paid']
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -56,8 +56,8 @@ class OrderAdmin(admin.ModelAdmin):
 
     get_total_amount.short_description = 'Total Amount'
 
-    def mark_as_paid(self, request, queryset):
-        updated_count = queryset.update(is_paid=True)
-        self.message_user(request, f'{updated_count} orders marked as paid.')
-
-    mark_as_paid.short_description = 'Mark selected orders as paid'
+    # def mark_as_paid(self, request, queryset):
+    #     updated_count = queryset.update(is_paid=True)
+    #     self.message_user(request, f'{updated_count} orders marked as paid.')
+    #
+    # mark_as_paid.short_description = 'Mark selected orders as paid'

@@ -5,19 +5,23 @@ from legaldocs.models import Contract, PrivacyPolicy, ReturnPolicy, TermOfServic
 
 @admin.register(Contract)
 class PrivacyPolicyAdmin(admin.ModelAdmin):
-    pass
+    readonly_fields = ['created', 'modified']  # Keep timestamps read-only
+    ordering = ['-modified']
 
 
 @admin.register(PrivacyPolicy)
 class PrivacyPolicyAdmin(admin.ModelAdmin):
-    pass
+    readonly_fields = ['created', 'modified']  # Keep timestamps read-only
+    ordering = ['-modified']
 
 
 @admin.register(ReturnPolicy)
 class TermOfServiceAdmin(admin.ModelAdmin):
-    pass
+    readonly_fields = ['created', 'modified']  # Keep timestamps read-only
+    ordering = ['-modified']
 
 
 @admin.register(TermOfService)
 class TermOfServiceAdmin(admin.ModelAdmin):
-    pass
+    readonly_fields = ['created', 'modified']  # Keep timestamps read-only
+    ordering = ['-modified']

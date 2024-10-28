@@ -8,6 +8,7 @@ from django.core.cache import cache
 from .models import Payment, PaymentPromotionCode, PaymentStatus, PaymentMethod
 from products.models import PromotionCode
 from orders.models import Order
+from users.models import Role
 
 User = get_user_model()
 
@@ -118,13 +119,13 @@ def create_payment(user: User, order: Order, payment_method: PaymentMethod, prom
     return payment
 
 
-def refund_payment(payment: Payment):
+def refund_payment(payment: Payment, order_items = None):
     from orders.models import Order
     with transaction.atomic():
         payment.status = PaymentStatus.REFUNDED
         payment.save(update_fields=['status'])
 
-        order_items = payment.order.items.select_related('product').all()
+        order_items = order_items or payment.order.items.select_related('product').all()
 
         for item in order_items:
             product = item.product
@@ -152,13 +153,25 @@ def refund_payment(payment: Payment):
 
 
 def finish_successful_payment(payment: Payment):
+    from users.services import RolePermissionService
     with transaction.atomic():
-        order_items = payment.order.items.select_related('product').all()
+        user = payment.customer
+        order_items = payment.order.items.select_related('product', 'product__stock').all()
 
         for item in order_items:
             product = item.product
-            stock = getattr(product, 'stock', None)
 
+            # First check if the product is a role, then check the stock.
+            if product.is_role:
+                # Check if the bought product is selected as a role and if the product have a role.
+                if not product.is_role_product():
+                    refund_payment(payment, order_items=order_items)
+                    raise ValidationError('The product is not a role, contact an administrator.')
+                new_role = Role(user=user, role_type=product.role_type)
+                new_role.save()
+                RolePermissionService().update_user_role(user=user, new_role=new_role)
+
+            stock = getattr(product, 'stock', None)
             if stock:
                 stock.successful_sell(quantity=item.quantity)
 
