@@ -353,9 +353,6 @@ LOGGING = {
     },
 }
 
-MAX_ADDRESS_PER_USER = 5
-MAX_PHONE_NUMBER_PER_USER = 2
-
 # TOS and Policies CACHES
 CACHE_KEY_TERMS_OF_SERVICE = 'terms_of_service'
 CACHE_KEY_PRIVACY_POLICY = 'privacy_policies'

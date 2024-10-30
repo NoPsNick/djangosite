@@ -271,7 +271,7 @@ class Stock(TimeStampedModel):
     def restore_hold(self, quantity=1):
         from .services import update_product_cache
         """
-        Safely restore stock and reduce units_sold using "transaction.atomic"
+        Safely restore stock hold and reduce units_sold using "transaction.atomic"
         and select_for_update to avoid race conditions.
         """
         stock = Stock.objects.select_for_update().get(id=self.id)

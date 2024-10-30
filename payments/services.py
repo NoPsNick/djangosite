@@ -1,3 +1,4 @@
+import logging
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.db import transaction
@@ -5,12 +6,14 @@ from django.core.exceptions import ValidationError
 from django.db.models import F, Sum
 from django.core.cache import cache
 
+from .customexceptions import PaymentProcessingError
 from .models import Payment, PaymentPromotionCode, PaymentStatus, PaymentMethod
 from products.models import PromotionCode
 from orders.models import Order
 from users.models import Role
 
 User = get_user_model()
+logger = logging.getLogger('celery')
 
 
 def create_payment(user: User, order: Order, payment_method: PaymentMethod, promo_codes: list = None):
@@ -26,164 +29,170 @@ def create_payment(user: User, order: Order, payment_method: PaymentMethod, prom
 
     # Check if the order is already paid or cancelled
     if order.is_paid:
-        raise ValidationError("Order is already paid")
+        raise ValidationError("Pedido já foi pago.")
     if order.status == order.Cancelled:
-        raise ValidationError("Order is cancelled")
+        raise ValidationError("Este pedido foi cancelado.")
 
-    # Prefetch related order items and their products
     order_items = order.items.select_related('product').all()
-
-    # Calculate the initial total price (without discount)
     total_price = order_items.aggregate(total_price=Sum(F('product__price') * F('quantity')))['total_price']
-
     valid_promo_codes = []
-    final_total_price = 0  # Initialize the final total price
+    final_total_price = total_price  # Initialize the final total price to the initial total price
 
-    with transaction.atomic():
-        payment = Payment.objects.create(customer=user, order=order, amount=total_price, payment_method=payment_method)
+    try:
+        with transaction.atomic():
+            payment = Payment.objects.create(
+                customer=user,
+                order=order,
+                amount=total_price,
+                payment_method=payment_method
+            )
 
-        # Apply promotion codes if provided
-        if promo_codes:
-            for code in promo_codes:
-                promo_code = get_object_or_404(PromotionCode, code=code)
+            # Apply promotion codes if provided
+            if promo_codes:
+                promo_code_objs = PromotionCode.objects.filter(code__in=promo_codes)
+                for promo_code in promo_code_objs:
+                    try:
+                        promo_code.is_valid(user=user)
+                        for item in order_items:
+                            product = item.product
+                            try:
+                                product.check_not_updated_promotions()
+                            except ValidationError as e:
+                                order.status = order.Cancelled
+                                order.save()
+                                raise ValidationError(
+                                    f"Error with product {product.name}, please create another order. "
+                                    f"Reason: {e}")
 
-                try:
-                    # Validate the promo code (raises ValidationError if invalid)
-                    promo_code.is_valid(user=user)
-
-                    # Apply discount to each item in the order
-                    for item in order_items:
-                        product = item.product
-
-                        # Check if product promotions are up to date
-                        try:
-                            product.check_not_updated_promotions()
-                        except ValidationError as e:
-                            order.status = order.Cancelled
-                            order.save()
-                            raise ValidationError(f"Error with product {product.name}, please create another order. "
-                                                  f"Reason: {e}")
-
-                        # Apply discount based on promo code
-                        category = product.category
-                        try:
-                            # Get the discounted price from the promotion
+                            category = product.category
                             discounted_price = promo_code.apply_discount(product, category=category)
-
-                            # Update the final total price with the discounted price for this item
                             final_total_price += discounted_price * item.quantity
-                        except ValidationError as e:
-                            raise ValidationError(f"Promo code {promo_code.code} cannot be applied: {str(e)}")
 
-                    # Add valid promo code to the list
-                    valid_promo_codes.append(promo_code)
+                        valid_promo_codes.append(promo_code)
 
-                except ValidationError as e:
-                    raise ValidationError(f"Failed to apply promo code {code}: {str(e)}")
+                    except ValidationError as e:
+                        raise ValidationError(f"Failed to apply promo code {promo_code.code}: {str(e)}")
 
-            # Update payment with the discounted price (final total after applying discounts)
-            payment.amount = final_total_price
-            payment.save()
+                payment.amount = final_total_price
+                payment.save(default_service=True)
 
-            # Create payment-promo code link
-            PaymentPromotionCode.objects.bulk_create([
-                PaymentPromotionCode(payment=payment, promotion_code=promo_code)
-                for promo_code in valid_promo_codes
-            ])
-        else:
-            # No promo codes were applied, use the initial total price
-            final_total_price = total_price
-            payment.amount = final_total_price
-            payment.save()
+                PaymentPromotionCode.objects.bulk_create([
+                    PaymentPromotionCode(payment=payment, promotion_code=promo_code)
+                    for promo_code in valid_promo_codes
+                ])
 
-        # Handle stock and finalize payment creation
-        for item in order_items:
-            product = item.product
-            stock = getattr(product, 'stock', None)
-
-            if stock:
-                if not stock.can_sell(item.quantity):
+            # Handle stock
+            for item in order_items:
+                stock = getattr(item.product, 'stock', None)
+                if stock and not stock.can_sell(item.quantity):
                     raise ValidationError(f"Not enough stock for product {product.name}")
-                # Reduce stock quantity in an atomic transaction
                 stock.sell(quantity=item.quantity)
 
-        # Increment usage count for the valid promo codes
-        for promo_code in valid_promo_codes:
-            promo_code.increment_usage(user=user)
+            # Increment promo code usage
+            for promo_code in valid_promo_codes:
+                promo_code.increment_usage(user=user)
 
-        payment.order.status = order.Waiting_payment
-        payment.order.save(update_fields=['status'])
+            payment.order.status = order.Waiting_payment
+            payment.order.save(update_fields=['status'])
 
-    cache_key = payments_cache_key_builder(user.id)
-    cache.delete(cache_key)  # Delete user's payments cache
+    except Exception as e:
+        logger.error(f"Error trying to create the payment: {e}.")
+        raise ValidationError("An error occurred while creating the payment.")
+
+    cache.delete(payments_cache_key_builder(user.id))
     return payment
 
 
-def refund_payment(payment: Payment, order_items = None):
+def process_payment_status(payment: Payment, order_items=None):
     from orders.models import Order
-    with transaction.atomic():
-        payment.status = PaymentStatus.REFUNDED
-        payment.save(update_fields=['status'])
 
-        order_items = order_items or payment.order.items.select_related('product').all()
+    # Determine new status and proceed only if conditions are met
+    if payment.status == PaymentStatus.COMPLETED:
+        new_status = PaymentStatus.REFUNDED
+    elif payment.status == PaymentStatus.PENDING:
+        new_status = PaymentStatus.CANCELLED
+    else:
+        # Exit if payment status doesn't match refundable or cancelable status
+        return
 
-        for item in order_items:
-            product = item.product
-            stock = getattr(product, 'stock', None)
+    try:
+        with transaction.atomic():
+            # Update payment status
+            payment.status = new_status
+            payment.save(update_fields=['status'], default_service=True)
 
-            if stock:
-                if payment.order.status == Order.Waiting_payment:
-                    stock.restore_hold(quantity=item.quantity)
-                else:
-                    stock.restore(quantity=item.quantity)
+            # Refund or restore items in order
+            order_items = order_items or payment.order.items.select_related('product').all()
+            for item in order_items:
+                stock = getattr(item.product, 'stock', None)
+                if stock:
+                    stock.restore(
+                        quantity=item.quantity) if payment.order.status != Order.Waiting_payment else stock.restore_hold(
+                        quantity=item.quantity)
 
-        payment.order.status = Order.Cancelled
-        payment.order.is_paid = False
-        payment.order.save(update_fields=['status', 'is_paid'])
+            # Update order status to 'cancelled' and mark as unpaid
+            payment.order.status = Order.Cancelled
+            payment.order.is_paid = False
+            payment.order.save(update_fields=['status', 'is_paid'])
 
-        payments_promo_codes = payment.used_coupons.all()
+            # Handle coupon restoration
+            for payment_code in payment.used_coupons.all():
+                payment_code.promotion_code.restore_usage(user=payment.customer)
+                payment_code.delete()
 
-        for payment_code in payments_promo_codes:
-            promo_code = payment_code.promotion_code
-            promo_code.restore_usage(user=payment.customer)
-            payment_code.delete()
+            # Clear related cache
+            cache.delete(payments_cache_key_builder(payment.customer.id))
 
-    cache_key = payments_cache_key_builder(payment.customer.id)
-    cache.delete(cache_key)  # Delete user's payments cache
+    except Exception as e:
+        # Log the error or handle it as needed
+        logger.error(f"Error processing payment status for payment ID {payment.id}: {e}. "
+                     f"Payment status: {payment.status}. "
+                     f"Trying to change to the payment new status: {new_status}")
+        raise PaymentProcessingError("An error occurred while processing the payment.")
 
 
 def finish_successful_payment(payment: Payment):
     from users.services import RolePermissionService
-    with transaction.atomic():
-        user = payment.customer
-        order_items = payment.order.items.select_related('product', 'product__stock').all()
+    if payment.status == PaymentStatus.PENDING:
+        try:
+            with transaction.atomic():
+                user = payment.customer
+                order_items = payment.order.items.select_related('product', 'product__stock').all()
 
-        for item in order_items:
-            product = item.product
+                # Process each item in the order
+                for item in order_items:
+                    product = item.product
 
-            # First check if the product is a role, then check the stock.
-            if product.is_role:
-                # Check if the bought product is selected as a role and if the product have a role.
-                if not product.is_role_product():
-                    refund_payment(payment, order_items=order_items)
-                    raise ValidationError('The product is not a role, contact an administrator.')
-                new_role = Role(user=user, role_type=product.role_type)
-                new_role.save()
-                RolePermissionService().update_user_role(user=user, new_role=new_role)
+                    # Assign roles if the product is a role type
+                    if product.is_role:
+                        if not product.is_role_product():
+                            process_payment_status(payment, order_items=order_items)
+                            raise ValidationError('This product is not a role, contact an administrator.')
 
-            stock = getattr(product, 'stock', None)
-            if stock:
-                stock.successful_sell(quantity=item.quantity)
+                        # Create and save the new role
+                        new_role = Role(user=user, role_type=product.role_type)
+                        new_role.save()
+                        RolePermissionService().update_user_role(user=user, new_role=new_role)
 
-        payment.status = PaymentStatus.COMPLETED
-        payment.save(update_fields=['status'])
+                    # Update stock for successful sale
+                    stock = getattr(product, 'stock', None)
+                    if stock:
+                        stock.successful_sell(quantity=item.quantity)
 
-        payment.order.status = Order.Finalized
-        payment.order.is_paid = True
-        payment.order.save(update_fields=['status', 'is_paid'])
+                # Update payment status to completed and mark order as in transit
+                payment.status = PaymentStatus.COMPLETED
+                payment.save(update_fields=['status'], default_service=True)
 
-    cache_key = payments_cache_key_builder(payment.customer.id)
-    cache.delete(cache_key)  # Delete user's payments cache
+                payment.order.status = Order.Way
+                payment.order.is_paid = True
+                payment.order.save(update_fields=['status', 'is_paid'])
+
+                # Clear related cache
+                cache.delete(payments_cache_key_builder(payment.customer.id))
+        except Exception as e:
+            # Log the error or handle it as needed
+            logger.error(f"Error processing payment status for payment ID {payment.id}: {e}. ")
+            raise PaymentProcessingError("An error occurred while processing the payment.")
 
 
 def payments_cache_key_builder(user_id):

@@ -8,6 +8,7 @@ from decimal import Decimal
 from model_utils.models import TimeStampedModel, SoftDeletableModel
 
 from orders.models import Order
+from payments.customexceptions import PaymentProcessingError
 from payments.managers import PaymentManager
 from products.models import PromotionCode
 
@@ -45,7 +46,7 @@ class PaymentMethod(TimeStampedModel):
                             max_length=100,
                             db_index=True,
                             blank=True,
-                            null=True,)
+                            null=True, )
 
     payment_type = models.CharField(
         verbose_name="Tipo de pagamento",
@@ -79,6 +80,7 @@ class PaymentStatus(models.TextChoices):
     COMPLETED = 'completed', 'Completo'
     FAILED = 'failed', 'Falhou'
     REFUNDED = 'refunded', 'Reembolsado'
+    CANCELLED = 'cancelled', 'Cancelado'
 
 
 class Payment(TimeStampedModel, SoftDeletableModel):
@@ -135,10 +137,70 @@ class Payment(TimeStampedModel, SoftDeletableModel):
             models.Index(fields=['modified']),
         ]
 
+    def __str__(self):
+        return f'Pagamento #{self.id} do Pedido #{self.order.id}'
+
     def clean(self):
         super().clean()
         if self.amount <= 0:
             raise ValidationError('The payment amount must be positive.')
+        self.verify()
+
+    def verify(self):
+        if self.pk:
+            previous_status = Payment.objects.get(pk=self.pk).status
+            if self.status == PaymentStatus.PENDING and previous_status == PaymentStatus.COMPLETED:
+                raise ValidationError('You cannot change a "COMPLETED" payment to "PENDING".')
+            if self.status != previous_status and previous_status in {PaymentStatus.FAILED, PaymentStatus.REFUNDED}:
+                raise ValidationError('You cannot change a "FAILED" or "REFUNDED" payment status.')
+
+    def save(self, *args, **kwargs):
+        # Determine if this is a new payment (on creation)
+        if self.pk is None and not kwargs.pop('default_service', False):
+            from payments.services import create_payment
+            user = self.customer
+            order = self.order
+            payment_method = self.payment_method
+            promo_codes = [code.code for code in self.used_coupons.all()]
+
+            # Call create_payment instead of direct save
+            create_payment(user=user, order=order, payment_method=payment_method, promo_codes=promo_codes)
+            return
+
+        # Proceed with updating an existing payment
+        previous_status = None
+        if self.pk:
+            previous_status = Payment.objects.get(pk=self.pk).status
+
+        # Standard save with default_service or new changes
+        if kwargs.pop('default_service', False):
+            super().save(*args, **kwargs)
+            return
+
+        # Handle status transitions if status has changed
+        if previous_status != self.status:
+            from payments.services import finish_successful_payment, process_payment_status
+            if previous_status == PaymentStatus.PENDING and self.status == PaymentStatus.COMPLETED:
+                payment = Payment.objects.select_for_update().get(id=self.id)
+                try:
+                    finish_successful_payment(payment)
+                except PaymentProcessingError:
+                    return
+            elif previous_status == PaymentStatus.COMPLETED and self.status == PaymentStatus.REFUNDED:
+                payment = Payment.objects.select_for_update().get(id=self.id)
+                try:
+                    process_payment_status(payment)
+                except PaymentProcessingError:
+                    return
+            elif previous_status == PaymentStatus.PENDING and self.status == PaymentStatus.CANCELLED:
+                payment = Payment.objects.select_for_update().get(id=self.id)
+                try:
+                    process_payment_status(payment)
+                except PaymentProcessingError:
+                    return
+
+        # Execute the standard save if no service transition occurred
+        super().save(*args, **kwargs)
 
 
 class PaymentPromotionCode(models.Model):

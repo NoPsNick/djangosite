@@ -40,7 +40,7 @@ class PaymentManager(models.Manager):
                 cached_payments[payment_instance.id] = payment_data
 
             # Cache all payments as a dictionary
-            cache.set(cache_key, cached_payments, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
+            cache.set(cache_key, cached_payments, timeout=getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
 
         return list(cached_payments.values())
 
@@ -92,6 +92,6 @@ class PaymentManager(models.Manager):
         cached_payments[payment_instance.id] = payment_data
 
         # Update the bulk cache with the new payment data
-        cache.set(cache_key, cached_payments, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
+        cache.set(cache_key, cached_payments, timeout=getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
 
         return payment_data

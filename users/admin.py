@@ -105,14 +105,13 @@ class UserAdmin(admin.ModelAdmin):
         )
 
     fieldsets = (
-        (None, {'fields': ('username', 'password')}),
+        (None, {'fields': ('username',)}),
         ('Personal info', {'fields': ('first_name', 'last_name', 'email', 'birth_date', 'tos_accept')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
         ('Other Info', {'fields': ('balance',)}),
     )
 
-    # Foi sofrido descobrir isso :)
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         # Override user_permissions field to include prefetched content types, reducing redundant queries
         if db_field.name == 'user_permissions':

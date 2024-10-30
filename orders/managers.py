@@ -36,7 +36,7 @@ class OrderManager(models.Manager):
                 cached_orders[order_instance.id] = order_data
 
             # Cache all orders as a dictionary with their IDs as keys
-            cache.set(cache_key, cached_orders, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
+            cache.set(cache_key, cached_orders, timeout=getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
 
         return list(cached_orders.values())
 
@@ -81,6 +81,6 @@ class OrderManager(models.Manager):
         cached_orders[order_instace.id] = order_data
 
         # Update the bulk cache with the new order data
-        cache.set(cache_key, cached_orders, timeout=getattr(settings, 'CACHE_TIMEOUT', 300))
+        cache.set(cache_key, cached_orders, timeout=getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
 
         return order_data

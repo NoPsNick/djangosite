@@ -20,6 +20,7 @@ from pages.decorators import strict_rate_limit
 
 @method_decorator(strict_rate_limit(url_names=['orders:create_order']), name='dispatch')
 class CreateOrderView(LoginRequiredMixin, View):
+
     @method_decorator(require_POST)
     def post(self, request, *args, **kwargs):
         # Get the cart items
@@ -115,7 +116,7 @@ class PaymentCreateView(LoginRequiredMixin, FormView):
 
     def form_valid(self, form):
         user = self.request.user
-        order_id = self.kwargs.get('order_id')  # Get the order ID from the URL
+        order_id = self.kwargs.get('order_id')
         order = Order.objects.get(id=order_id, customer=user)
 
         payment_method = form.cleaned_data['payment_method']
@@ -123,11 +124,12 @@ class PaymentCreateView(LoginRequiredMixin, FormView):
 
         try:
             # Call the service function to create the payment
-            create_payment(user=user, order=order, payment_method=payment_method, promo_codes=promo_codes)
-            messages.success(self.request, "Payment created successfully!")
+            payment = create_payment(user=user, order=order, payment_method=payment_method, promo_codes=promo_codes)
+            self.kwargs['payment_id'] = payment.id
+            messages.success(self.request, "Pagamento criado com sucesso!")
         except ValidationError as e:
             # Handle any errors that occur during payment creation
-            messages.error(self.request, f"Payment failed: {str(e)}")
+            messages.error(self.request, f"Criação do pagamento falhou, motivo: {str(e)}")
             return self.form_invalid(form)
 
         return super().form_valid(form)
@@ -136,3 +138,11 @@ class PaymentCreateView(LoginRequiredMixin, FormView):
         context = super().get_context_data(**kwargs)
         context['order_id'] = self.kwargs.get('order_id')
         return context
+
+    def get_success_url(self):
+        payment_id = self.kwargs.pop('payment_id',
+                                     None)
+        if payment_id:
+            return reverse('payments:payment_detail', kwargs={'payment_id': payment_id})
+        # Se o 'payment_id' não foi definido, retorna para a lista de pagamentos
+        return super().get_success_url()

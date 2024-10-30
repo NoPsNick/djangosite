@@ -1,5 +1,7 @@
+from django.conf import settings
 from django.db import models
 from model_utils.models import TimeStampedModel
+from django.core.cache import caches
 
 from .managers import TermOfServiceManager, PrivacyPolicyManager, ReturnPolicyManager
 

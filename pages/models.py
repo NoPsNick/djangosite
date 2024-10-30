@@ -85,6 +85,10 @@ class About(TimeStampedModel):
         verbose_name = "Sobre"
         verbose_name_plural = "Sobre"
 
+        constraints = [
+            models.UniqueConstraint(fields=['position'], name='unique_position_about')
+        ]
+
     def __str__(self):
         return self.title or f"Conteúdo na posição {self.position}"
 
@@ -94,8 +98,8 @@ class About(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        cache.delete('about_list')  # Invalida o cache ao salvar
+        cache.delete('about_list')
 
     def delete(self, *args, **kwargs):
-        cache.delete('about_list')  # Invalida o cache ao deletar
+        cache.delete('about_list')
         super().delete(*args, **kwargs)

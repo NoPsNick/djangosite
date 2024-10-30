@@ -10,7 +10,7 @@ from .models import ReturnPolicy, TermOfService, PrivacyPolicy
 @receiver(post_delete, sender=ReturnPolicy)
 def post_save_return_policy(sender, instance, **kwargs):
     file_cache = caches['file_based']
-    return_policies = file_cache.get(settings.CACHE_KEY_RETURN_POLICY)
+    return_policies = file_cache.get(getattr(settings.CACHE_KEY_RETURN_POLICY, 'return_policies'))
     return_policies.clear()
     sender.objects.get_return_policies()
 
@@ -19,7 +19,7 @@ def post_save_return_policy(sender, instance, **kwargs):
 @receiver(post_delete, sender=PrivacyPolicy)
 def post_save_privacy_policy(sender, instance, **kwargs):
     file_cache = caches['file_based']
-    privacy_policies = file_cache.get(settings.CACHE_KEY_PRIVACY_POLICY)
+    privacy_policies = file_cache.get(getattr(settings.CACHE_KEY_PRIVACY_POLICY, 'privacy_policies'))
     privacy_policies.clear()
     sender.objects.get_privacy_policies()
 
@@ -28,6 +28,6 @@ def post_save_privacy_policy(sender, instance, **kwargs):
 @receiver(post_delete, sender=TermOfService)
 def post_save_term_of_service(sender, instance, **kwargs):
     file_cache = caches['file_based']
-    terms_of_service = file_cache.get(settings.CACHE_KEY_TERMS_OF_SERVICE)
+    terms_of_service = file_cache.get(getattr(settings.CACHE_KEY_TERMS_OF_SERVICE, 'terms_of_service'))
     terms_of_service.clear()
     sender.objects.get_terms_of_service()
