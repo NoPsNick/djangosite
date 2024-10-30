@@ -16,7 +16,6 @@ def add_to_cart(request, slug):
     Add a product to the cart, and save the cart in cookies.
     """
     cart = get_cart(request)  # Retrieve the cart from cookies
-    product = get_product_from_cache(slug)
 
     # Define the quantity (you can also get this from the POST data)
     quantity = int(request.POST.get('quantity', 1))  # Default to 1 if not provided

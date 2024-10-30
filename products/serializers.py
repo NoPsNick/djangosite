@@ -28,9 +28,15 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class RoleTypeSerializer(serializers.ModelSerializer):
+    effective_days = serializers.SerializerMethodField()
     class Meta:
         model = RoleType
         fields = ['id', 'name', 'effective_days']
+
+    def get_effective_days(self, obj):
+        # Convert effective_days from timedelta to a datetime string
+        days = obj.effective_days.days
+        return str(days) + " Dias"
 
 
 class CategorySerializer(serializers.ModelSerializer):

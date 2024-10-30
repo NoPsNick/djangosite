@@ -1,6 +1,5 @@
 import logging
 from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.db.models import F, Sum
@@ -38,66 +37,74 @@ def create_payment(user: User, order: Order, payment_method: PaymentMethod, prom
     valid_promo_codes = []
     final_total_price = total_price  # Initialize the final total price to the initial total price
 
-    try:
-        with transaction.atomic():
-            payment = Payment.objects.create(
-                customer=user,
-                order=order,
-                amount=total_price,
-                payment_method=payment_method
-            )
+    with transaction.atomic():
+        payment = Payment.objects.create(
+            customer=user,
+            order=order,
+            amount=total_price,
+            payment_method=payment_method
+        )
 
-            # Apply promotion codes if provided
-            if promo_codes:
-                promo_code_objs = PromotionCode.objects.filter(code__in=promo_codes)
-                for promo_code in promo_code_objs:
-                    try:
-                        promo_code.is_valid(user=user)
-                        for item in order_items:
-                            product = item.product
-                            try:
-                                product.check_not_updated_promotions()
-                            except ValidationError as e:
-                                order.status = order.Cancelled
-                                order.save()
-                                raise ValidationError(
-                                    f"Error with product {product.name}, please create another order. "
-                                    f"Reason: {e}")
+        # Apply promotion codes if provided
+        if promo_codes:
+            promo_code_objs = PromotionCode.objects.filter(code__in=promo_codes)
+            for promo_code in promo_code_objs:
+                try:
+                    promo_code.is_valid(user=user)
+                    for item in order_items:
+                        product = item.product
+                        try:
+                            product.check_not_updated_promotions()
+                        except ValidationError as e:
+                            order.status = order.Cancelled
+                            order.save()
+                            raise ValidationError(
+                                f"Error with product {product.name}, please create another order. "
+                                f"Reason: {e}")
 
-                            category = product.category
-                            discounted_price = promo_code.apply_discount(product, category=category)
-                            final_total_price += discounted_price * item.quantity
+                        category = product.category
+                        discounted_price = promo_code.apply_discount(product, category=category)
+                        final_total_price -= discounted_price * item.quantity
 
-                        valid_promo_codes.append(promo_code)
+                    valid_promo_codes.append(promo_code)
 
-                    except ValidationError as e:
-                        raise ValidationError(f"Failed to apply promo code {promo_code.code}: {str(e)}")
+                except ValidationError as e:
+                    raise ValidationError(f"Failed to apply promo code {promo_code.code}: {str(e)}")
 
-                payment.amount = final_total_price
-                payment.save(default_service=True)
 
-                PaymentPromotionCode.objects.bulk_create([
-                    PaymentPromotionCode(payment=payment, promotion_code=promo_code)
-                    for promo_code in valid_promo_codes
-                ])
+            PaymentPromotionCode.objects.bulk_create([
+                PaymentPromotionCode(payment=payment, promotion_code=promo_code)
+                for promo_code in valid_promo_codes
+            ])
+        # It's a tuple where the first element will be True if the user's balance can pay the payment, False
+        # otherwise, the other element will be None if the user's paid with the balance entirely, otherwise how much
+        # it needs to pay the payment.
+        balance_usage = payment.customer.pay_with_balance(amount=final_total_price)
 
-            # Handle stock
-            for item in order_items:
-                stock = getattr(item.product, 'stock', None)
-                if stock and not stock.can_sell(item.quantity):
-                    raise ValidationError(f"Not enough stock for product {product.name}")
-                stock.sell(quantity=item.quantity)
-
-            # Increment promo code usage
-            for promo_code in valid_promo_codes:
-                promo_code.increment_usage(user=user)
-
+        if balance_usage[0]:
+            payment.status = PaymentStatus.COMPLETED
+            payment.amount = 0
+            payment.save(default_service=True)
+            payment.order.status = order.Finalized
+            payment.order.is_paid = True
+            payment.order.save(update_fields=['status', 'is_paid'])
+        elif not balance_usage[0]:
+            payment.amount = final_total_price - balance_usage[1]
+            payment.save(default_service=True)
             payment.order.status = order.Waiting_payment
             payment.order.save(update_fields=['status'])
 
-    except Exception as e:
-        logger.error(f"Error trying to create the payment: {e}.")
-        raise ValidationError("An error occurred while creating the payment.")
+        # Handle stock
+        for item in order_items:
+            stock = getattr(item.product, 'stock', None)
+            if stock:
+                if not stock.can_sell(item.quantity):
+                    raise ValidationError(f"Não temos estoque suficiente para o produto: {product.name}")
+                stock.sell(quantity=item.quantity)
+
+        # Increment promo code usage
+        for promo_code in valid_promo_codes:
+            promo_code.increment_usage(user=user)
 
     cache.delete(payments_cache_key_builder(user.id))
     return payment
@@ -117,10 +124,6 @@ def process_payment_status(payment: Payment, order_items=None):
 
     try:
         with transaction.atomic():
-            # Update payment status
-            payment.status = new_status
-            payment.save(update_fields=['status'], default_service=True)
-
             # Refund or restore items in order
             order_items = order_items or payment.order.items.select_related('product').all()
             for item in order_items:
@@ -140,6 +143,10 @@ def process_payment_status(payment: Payment, order_items=None):
                 payment_code.promotion_code.restore_usage(user=payment.customer)
                 payment_code.delete()
 
+            # Update payment status
+            payment.status = new_status
+            payment.save(update_fields=['status'], default_service=True)
+
             # Clear related cache
             cache.delete(payments_cache_key_builder(payment.customer.id))
 
@@ -149,6 +156,10 @@ def process_payment_status(payment: Payment, order_items=None):
                      f"Payment status: {payment.status}. "
                      f"Trying to change to the payment new status: {new_status}")
         raise PaymentProcessingError("An error occurred while processing the payment.")
+
+    # If no exceptions and the payment was refunded, give to the user his balance.
+    if new_status == PaymentStatus.REFUNDED:
+        payment.customer.refund_to_balance(payment.amount)
 
 
 def finish_successful_payment(payment: Payment):

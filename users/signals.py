@@ -53,7 +53,7 @@ def remove_cached_user(sender, instance, **kwargs):
     cache.delete(cache_key)
 
 
-# Caching user data on login, sign-up, password, or email changes
+# Caching user data on login, sign-up, password, or information changes
 @receiver(user_logged_in)
 @receiver(user_signed_up)
 @receiver(password_reset)
@@ -72,6 +72,19 @@ def cache_user_on_sign_in(sender, request, user, **kwargs):
 
 @receiver(user_logged_out)
 def clear_user_cache_on_logout(sender, request, user, **kwargs):
-    """Clear the user cache on logout."""
+    """Clear the user cache on logout or delete."""
     cache_key = get_cache_key(user.id)
+    cache.delete(cache_key)
+
+
+@receiver(post_save, sender=User)
+def cache_user_data(sender, instance, **kwargs):
+    cache_key = get_cache_key(instance.pk)
+    serializer = UserSerializer(instance, context={'request': instance})
+    cache.set(cache_key, serializer.data, timeout=CACHE_TIMEOUT)
+
+
+@receiver(post_delete, sender=User)
+def clear_user_cache_data(sender, instance, **kwargs):
+    cache_key = get_cache_key(instance.pk)
     cache.delete(cache_key)

@@ -64,6 +64,11 @@ Perfil - {{ user_data.username }}
                     {% with label="Pagamentos" url=payments_url message="Meus Pagamentos" %}
                         {% include "partials/profile_field.html" %}
                     {% endwith %}
+                    {% with saldo=user_data.balance %}
+                    {% with label="Saldo atual" url="#" message=saldo %}
+                        {% include "partials/profile_field.html" %}
+                    {% endwith %}
+                    {% endwith %}
                 </div>
             </div>
         </div>

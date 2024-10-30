@@ -1,9 +1,12 @@
 from django.contrib.auth.models import AbstractUser, Permission
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 from django.utils import timezone
 from django.urls import reverse
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, MaxValueValidator
+
+from decimal import Decimal
 
 from model_utils.models import TimeStampedModel, StatusModel
 # from localflavor.br.models import BRPostalCodeField, BRStateField
@@ -192,7 +195,12 @@ class User(AbstractUser):
 
     role = models.OneToOneField(Role, verbose_name="Cargo", related_name="role", default=None, null=True, blank=True,
                                 on_delete=models.SET_NULL)
-    balance = models.PositiveIntegerField("Saldo", default=0)
+    balance =models.DecimalField(
+        verbose_name="Saldo",
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00')), MaxValueValidator(Decimal('999.99'))]
+    )
     # address = models.OneToOneField(Address, verbose_name="Endereço", related_name="user_from_address",
     #                                on_delete=models.SET_NULL, null=True, blank=True)
     # phone_number = models.OneToOneField(PhoneNumber, verbose_name="Telefone", related_name="user_from_phone",
@@ -217,6 +225,42 @@ class User(AbstractUser):
         if self.role and self.role.role_type and not self.role.is_expired():
             return self.role.role_type.icon
         return ''
+
+    def verify_pay_action(self, amount):
+        """
+        Check if the user has sufficient balance for the full amount.
+        """
+        if amount <= 0:
+            raise ValueError("Amount must be positive.")
+        return self.balance >= amount
+
+    @transaction.atomic
+    def pay_with_balance(self, amount):
+        """
+        Deduct the amount from the user's balance if possible, and return a tuple indicating success and amount used.
+        If balance is insufficient, use the entire balance.
+        """
+        # Lock the user's balance row for update
+        user = User.objects.select_for_update().get(pk=self.pk)
+
+        if user.verify_pay_action(amount):
+            # User can pay the entire amount
+            user.balance = Decimal(user.balance - amount)
+            user.save(update_fields=["balance"])
+            return True, None
+        else:
+            # User can pay only part of the amount
+            paid = user.balance
+            user.balance = 0
+            user.save(update_fields=["balance"])
+            return False, paid
+
+    @transaction.atomic
+    def refund_to_balance(self, amount):
+        user = User.objects.select_for_update().get(pk=self.pk)
+
+        user.balance = Decimal(user.balance + amount)
+        user.save(update_fields=["balance"])
 
     # def verify_address(self):
     #     addresses = Address.objects.get_user_addresses(self)

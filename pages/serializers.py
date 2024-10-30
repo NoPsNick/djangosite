@@ -81,7 +81,8 @@ class UserSerializer(serializers.ModelSerializer):
             'is_authenticated',
             'full_name',
             'role_info',
-            'role_icon'
+            'role_icon',
+            'balance'
         ]
 
     def get_request(self):

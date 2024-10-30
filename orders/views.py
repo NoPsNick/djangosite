@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.db.models import Q, Prefetch
 from django.shortcuts import redirect
 from django.urls import reverse_lazy, reverse
@@ -105,6 +106,7 @@ class UserOrderDetailView(LoginRequiredMixin, TemplateView):
 
         # Add order to the context
         context['order'] = order
+        context['user_balance'] = user.balance
         return context
 
 

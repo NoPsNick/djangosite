@@ -1,6 +1,6 @@
 from .views import get_cart
 
 
-def cart_total_quantity(request):
+def cart_info(request):
     cart = get_cart(request)
-    return {'cart_total_quantity': len(cart)}
+    return {'cart_info': cart}

@@ -155,19 +155,6 @@ class Payment(TimeStampedModel, SoftDeletableModel):
                 raise ValidationError('You cannot change a "FAILED" or "REFUNDED" payment status.')
 
     def save(self, *args, **kwargs):
-        # Determine if this is a new payment (on creation)
-        if self.pk is None and not kwargs.pop('default_service', False):
-            from payments.services import create_payment
-            user = self.customer
-            order = self.order
-            payment_method = self.payment_method
-            promo_codes = [code.code for code in self.used_coupons.all()]
-
-            # Call create_payment instead of direct save
-            create_payment(user=user, order=order, payment_method=payment_method, promo_codes=promo_codes)
-            return
-
-        # Proceed with updating an existing payment
         previous_status = None
         if self.pk:
             previous_status = Payment.objects.get(pk=self.pk).status
