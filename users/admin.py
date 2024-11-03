@@ -1,17 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.models import Permission
-from django.db.models import Count, Prefetch
+from django.db.models import Prefetch
 
 from .models import RoleType, Role, User
-
-
-@admin.register(Permission)
-class PermissionAdmin(admin.ModelAdmin):
-    search_fields = ['name', 'codename', 'content_type__model']
-
-    def get_queryset(self, request):
-        queryset = super().get_queryset(request).select_related('content_type')
-        return queryset
 
 
 class RoleInline(admin.TabularInline):
@@ -25,13 +16,7 @@ class RoleInline(admin.TabularInline):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
 
-        # Use Prefetch to control loading of permissions with content types in a single query
-        permissions_prefetch = Prefetch(
-            'role_type__permissions',
-            queryset=Permission.objects.select_related('content_type')
-        )
-
-        return queryset.select_related('user', 'role_type').prefetch_related(permissions_prefetch)
+        return queryset.select_related('user', 'role_type')
 
 
 @admin.register(RoleType)
@@ -41,14 +26,6 @@ class RoleTypeAdmin(admin.ModelAdmin):
     list_filter = ['currency', 'staff']
     ordering = ['-modified']
     readonly_fields = ['created', 'modified']
-    filter_horizontal = ['permissions']
-
-    def get_queryset(self, request):
-        # Annotate count on the queryset to avoid redundant counting
-        queryset = super().get_queryset(request).prefetch_related(
-            'permissions', 'permissions__content_type'
-        ).annotate(permission_count=Count('permissions'))
-        return queryset
 
     def get_search_results(self, request, queryset, search_term):
         # Override to remove redundant count operation on changelist view
@@ -56,12 +33,6 @@ class RoleTypeAdmin(admin.ModelAdmin):
         if use_distinct:
             queryset = queryset.distinct()
         return queryset, use_distinct
-
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
-        # Override permissions field to include prefetched content types, reducing redundant queries
-        if db_field.name == 'permissions':
-            kwargs['queryset'] = Permission.objects.select_related('content_type')
-        return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 
 @admin.register(Role)
@@ -76,13 +47,6 @@ class RoleAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         # Use select_related for efficient related data loading
         return super().get_queryset(request).select_related('user', 'role_type')
-
-    def get_search_results(self, request, queryset, search_term):
-        # Avoid redundant count by overriding search results
-        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
-        if use_distinct:
-            queryset = queryset.distinct()
-        return queryset, use_distinct
 
 
 @admin.register(User)
@@ -101,7 +65,7 @@ class UserAdmin(admin.ModelAdmin):
                                                             ).prefetch_related(
             Prefetch(
             'user_permissions',
-            queryset=Permission.objects.select_related('content_type')),
+            queryset=Permission.objects.select_related('content_type'))
         )
 
     fieldsets = (
@@ -109,7 +73,7 @@ class UserAdmin(admin.ModelAdmin):
         ('Personal info', {'fields': ('first_name', 'last_name', 'email', 'birth_date', 'tos_accept')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
-        ('Other Info', {'fields': ('balance',)}),
+        ('Other Info', {'fields': ('balance', 'role')}),
     )
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):

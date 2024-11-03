@@ -137,8 +137,9 @@ def update_product_cache(sender, instance, **kwargs):
         try:
             stock_instance = Stock.objects.select_for_update().get(id=instance.stock.id)
         except Stock.DoesNotExist:
-            stock_instance = instance.stock
-        set_cache(stock_cache_key, StockSerializer(stock_instance).data)
+            stock_instance = getattr(instance, 'stock', None)
+        if stock_instance:
+            set_cache(stock_cache_key, StockSerializer(stock_instance).data)
 
     # Atualiza a lista de slugs de produtos em cache
     product_slugs = get_cached_product_slugs()

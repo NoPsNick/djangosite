@@ -16,12 +16,10 @@ User = get_user_model()
 
 class Order(TimeStampedModel, StatusModel):
     Cancelled = "Cancelado"
-    Way = "A caminho"
     Waiting_payment = "Aguardando pagamento"
     Finalized = "Finalizado"
 
     STATUS = Choices(
-        (Way, "A caminho"),
         (Waiting_payment, "Aguardando pagamento"),
         (Finalized, "Finalizado"),
         (Cancelled, "Pedido cancelado"),

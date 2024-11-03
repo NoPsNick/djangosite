@@ -1,8 +1,9 @@
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
-
+from django.contrib import messages
 from django.views.generic import TemplateView
+
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -13,22 +14,32 @@ from .services import get_cart_items, get_cart, save_cart
 @require_POST
 def add_to_cart(request, slug):
     """
-    Add a product to the cart, and save the cart in cookies.
+    Add a product to the cart, handling roles separately.
     """
     cart = get_cart(request)  # Retrieve the cart from cookies
+    quantity = int(request.POST.get('quantity', 1))  # Default quantity
 
-    # Define the quantity (you can also get this from the POST data)
-    quantity = int(request.POST.get('quantity', 1))  # Default to 1 if not provided
+    # Get the product and check if it's a role
+    product = get_product_from_cache(slug)
+    is_role_product = product.get('is_role', False)
 
-    # Check if the product is already in the cart and update quantity
+    if is_role_product:
+        # Check for other role products in the cart
+        role_products_in_cart = [
+            s for s in cart if get_product_from_cache(s).get('is_role', False)
+        ]
+        if role_products_in_cart:
+            messages.error(request, 'Não é possível adicionar mais de um cargo ao carrinho.')
+            return redirect('cart:detail')
+
+    # Update quantity if product is already in the cart
     if slug in cart:
         cart[slug]['quantity'] = quantity
     else:
-        # Add the product to the cart
-        cart[slug] = {
-            'quantity': quantity,
-        }
+        # Add the new product to the cart
+        cart[slug] = {'quantity': quantity}
 
+    # Save the cart to cookies
     response = redirect('cart:detail')
     save_cart(response, cart)
 

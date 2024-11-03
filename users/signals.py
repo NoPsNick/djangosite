@@ -17,20 +17,21 @@ User = get_user_model()
 
 CACHE_TIMEOUT = settings.CACHE_TIMEOUT or 60 * 15  # Define your cache timeout centrally
 
+
 @receiver(post_save, sender=Role)
-def add_vip_permissions(sender, instance, **kwargs):
+def add_role(sender, instance, **kwargs):
     from .services import RolePermissionService
     """
     Adds VIP or staff permissions when a new role is assigned.
     """
     instance.verify_status()  # Make sure the role status is up-to-date
-    RolePermissionService().verify_role_status(instance.user)
+    RolePermissionService().update_user_role(user=instance.user, new_role=instance)
 
 
 @receiver(post_delete, sender=Role)
-def remove_vip_permissions(sender, instance, **kwargs):
+def remove_role(sender, instance, **kwargs):
     from .services import RolePermissionService
-    RolePermissionService().remove_role_permissions(instance.user, instance.role_type)
+    RolePermissionService().update_user_role(user=instance.user, new_role=None)
 
 
 def get_cache_key(user_id):

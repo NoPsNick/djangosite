@@ -1,4 +1,3 @@
-from django.contrib.auth import get_user_model
 from django.db.models import Q, Prefetch
 from django.shortcuts import redirect
 from django.urls import reverse_lazy, reverse
@@ -106,7 +105,6 @@ class UserOrderDetailView(LoginRequiredMixin, TemplateView):
 
         # Add order to the context
         context['order'] = order
-        context['user_balance'] = user.balance
         return context
 
 
@@ -126,7 +124,7 @@ class PaymentCreateView(LoginRequiredMixin, FormView):
 
         try:
             # Call the service function to create the payment
-            payment = create_payment(user=user, order=order, payment_method=payment_method, promo_codes=promo_codes)
+            payment = create_payment(user=user, order=order, payment_type=payment_method, promo_codes=promo_codes)
             self.kwargs['payment_id'] = payment.id
             messages.success(self.request, "Pagamento criado com sucesso!")
         except ValidationError as e:

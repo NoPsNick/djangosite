@@ -1,2 +1,0 @@
-class PaymentProcessingError(Exception):
-    pass

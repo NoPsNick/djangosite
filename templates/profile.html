@@ -48,9 +48,8 @@ Perfil - {{ user_data.username }}
                             <p class="text-muted mb-0">VIP</p>
                         </div>
                         <div class="col-sm-8">
-                            {% if user_data.vip_info %}
-                                <p class="text-secondary mb-0">{{ user_data.vip_info|linebreaksbr }}</p>
-                                <a href="#" class="text-secondary mb-0"> Ver/Alterar plano VIP </a>
+                            {% if user_data.role_info %}
+                                <p class="text-secondary mb-0">{{ user_data.role_info|linebreaksbr }}</p>
                             {% else %}
                                 <a href="#" class="text-secondary mb-0">Você não é membro VIP, adiquira um plano clicando aqui</a>
                             {% endif %}

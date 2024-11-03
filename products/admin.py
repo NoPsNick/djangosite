@@ -9,14 +9,9 @@ class StockInline(admin.StackedInline):  # or admin.StackedInline for a more det
     model = Stock
     fields = ['units', 'units_sold', 'units_hold']
     readonly_fields = ['units_sold', 'units_hold']  # Make fields read-only as needed
-    extra = 0  # No extra blank forms by default
+    extra = 1
     can_delete = False  # Disable deletion to ensure each product has a single stock entry
     max_num = 1
-
-    def has_add_permission(self, request, obj=None):
-        # Prevent adding stock manually; it should only be created when a product is created
-        return False
-
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -31,14 +26,6 @@ class ProductAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.select_related('category', 'role_type')
-
-    def save_related(self, request, form, formsets, change):
-        super().save_related(request, form, formsets, change)
-        # Update product availability based on stock units after saving
-        product = form.instance
-        if product.stock:
-            product.is_available = product.stock.units > 0
-            product.save(update_fields=['is_available'])
 
 
 @admin.register(Category)

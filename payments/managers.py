@@ -28,7 +28,9 @@ class PaymentManager(models.Manager):
                 'payment_method', # Fetch the payment method from the Payment
             ).prefetch_related(
                 # Pre-fetch the payment order items(products)
-                Prefetch('order__items', queryset=Item.objects.select_related('product__category')),
+                Prefetch('order__items', queryset=Item.objects.select_related('product__category',
+                                                                              'product__stock',
+                                                                              'product__role_type')),
                 'order__customer', # Pre-fetch the payment order
                 'used_coupons__codes' # Pre-fetch the coupons that were used.
             ).order_by('-id')
@@ -69,7 +71,9 @@ class PaymentManager(models.Manager):
                 'payment_method', # Fetch the payment method from the Payment
             ).prefetch_related(
                 # Pre-fetch the payment order items(products)
-                Prefetch('order__items', queryset=Item.objects.select_related('product__category')),
+                Prefetch('order__items', queryset=Item.objects.select_related('product__category',
+                                                                              'product__stock',
+                                                                              'product__role_type')),
                 'order__customer', # Pre-fetch the payment order
                 'used_coupons__codes' # Pre-fetch the coupons that were used.
             )

@@ -30,19 +30,23 @@ def get_cart_items(request):
     for slug, item in cart.items():
         product = get_product_from_cache(slug)
         if product:
-            product_price = str(product['price'])
+            price = product.get('price', None)
+            quantity_form = CartAddProductForm(
+                initial={"quantity": item["quantity"], "override": True}) if not product.get("is_role", False) else None
+
+            product_price = str(price)
             total_price_product = str(Decimal(cart[slug]['quantity']) * Decimal(product_price))
             cart_items.append({
                 "product": {
-                    'name': product['name'],  # Use the name from the cache
-                    'price': product['price'],  # Use the price from the cache
-                    'url': product['link_absoluto'],  # Product URL from the cache
+                    'name': product.get('name', None),  # Use the name from the cache
+                    'price': product_price,  # Use the price from the cache
+                    'url': product.get('link_absoluto', None),  # Product URL from the cache
                     'slug': slug,  # Product slug from the cookie
+                    'is_role': product.get('is_role', False),
                 },
-                'quantity': item['quantity'],
-                "update_quantity_form": CartAddProductForm(
-                    initial={"quantity": item["quantity"], "override": True}),
-                "total_price_product": str(total_price_product),
+                'quantity': 1 if product.get('is_role', False) else item["quantity"],
+                "update_quantity_form": quantity_form,
+                "total_price_product": total_price_product,
             })
     # Calculate total price based on the data stored in the cookie
     total_price = sum(Decimal(item['total_price_product']) for item in cart_items)

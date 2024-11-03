@@ -22,10 +22,9 @@ class OrderManager(models.Manager):
 
         if cached_orders is None:
             # Use select_related for customer and prefetch_related for items and their related fields
-            orders_query_set = self.filter(customer=customer).select_related(
-                'customer'  # Fetch related customer in the same query
-            ).prefetch_related(
-                Prefetch('items', queryset=Item.objects.select_related('product__category'))
+            orders_query_set = self.filter(customer=customer).select_related('customer').prefetch_related(
+                Prefetch('items', queryset=Item.objects.select_related('product__category', 'product__role_type',
+                                                                       'product__stock')),
             ).order_by('-id')
 
             cached_orders = {}
@@ -61,7 +60,8 @@ class OrderManager(models.Manager):
         if order is None:
             # Fallback to querying the database if the order is not found in cache
             order_instance = self.filter(customer=customer, id=order_id).select_related('customer').prefetch_related(
-                Prefetch('items', queryset=Item.objects.select_related('product__category, product__role_type')),
+                Prefetch('items', queryset=Item.objects.select_related('product__category', 'product__role_type',
+                                                                       'product__stock')),
             ).order_by('-id')
             order = self._cache_single_order(order_instance)
 

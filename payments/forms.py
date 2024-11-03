@@ -4,16 +4,15 @@ from .models import PaymentMethod
 
 
 class PaymentForm(forms.Form):
-    payment_method = forms.ModelChoiceField(
-        label = "Método de Pagamento",
-        queryset=PaymentMethod.objects.all(),
+    payment_method = forms.ChoiceField(
+        label="Método de Pagamento",
+        choices=PaymentMethod.PAYMENT_TYPE_CHOICES,
         widget=forms.Select(attrs={'class': 'form-control'})
     )
     promo_codes = forms.CharField(
-        label = "Cupons",
+        label="Cupons",
         required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Cupons (Separados por '
-                                                                              'Vírgula)'})
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Cupons (Separados por Vírgula)'})
     )
 
     def clean_promo_codes(self):

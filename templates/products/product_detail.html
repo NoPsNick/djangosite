@@ -27,11 +27,17 @@
 
             {% if product.slug not in cart_info %}
                 <form class="mt-4" action="{% url 'cart:cart_add' slug=product.slug %}" method="post">
-                    <div class="mb-3">
-                        {{ form.quantity.label_tag }}
-                        {% render_field form.quantity class+="form-control" %}
-                        {{ form.override }}
-                    </div>
+                    {% if not product.is_role %}
+                        <div class="mb-3">
+                            {{ form.quantity.label_tag }}
+                            {% render_field form.quantity class+="form-control" %}
+                            {{ form.override }}
+                        </div>
+                    {% else %}
+                        <div class="mb-3">
+                        Quantidade: 1
+                        </div>
+                    {% endif %}
                     {% csrf_token %}
                     <button class="btn btn-success btn-lg" type="submit">
                         Adicionar ao Carrinho

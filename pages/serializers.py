@@ -104,11 +104,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_role_info(self, obj):
         if self.check_permission(obj):
-            return obj.role.get_role_info() if obj.role else None
+            return obj.get_role_info()
 
     def get_role_icon(self, obj):
         if self.check_permission(obj):
-            return obj.get_role_icon() if obj.role else None
+            return obj.get_role_icon()
 
     def get_date_joined(self, obj):
         if self.check_permission(obj):

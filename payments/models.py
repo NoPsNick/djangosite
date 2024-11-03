@@ -8,7 +8,6 @@ from decimal import Decimal
 from model_utils.models import TimeStampedModel, SoftDeletableModel
 
 from orders.models import Order
-from payments.customexceptions import PaymentProcessingError
 from payments.managers import PaymentManager
 from products.models import PromotionCode
 
@@ -37,22 +36,22 @@ class ExternalApiResponse(TimeStampedModel):
 class PaymentMethod(TimeStampedModel):
     """Model representing a method of payment."""
     PAYMENT_TYPE_CHOICES = [
+        ('user_balance', 'Saldo do Usuário'),
         ('credit_card', 'Cartão de Crédito'),
         ('paypal', 'PayPal'),
         ('bank_transfer', 'Transferência Bancária'),
     ]
 
-    name = models.CharField(verbose_name="Nome",
+    name = models.CharField(verbose_name="Nome do Cliente",
                             max_length=100,
                             db_index=True,
                             blank=True,
                             null=True, )
-
     payment_type = models.CharField(
         verbose_name="Tipo de pagamento",
         max_length=100,
         choices=PAYMENT_TYPE_CHOICES,
-        default='credit_card',
+        default='user_balance',
     )
     response = models.ForeignKey(
         ExternalApiResponse,
@@ -138,7 +137,7 @@ class Payment(TimeStampedModel, SoftDeletableModel):
         ]
 
     def __str__(self):
-        return f'Pagamento #{self.id} do Pedido #{self.order.id}'
+        return f'Pagamento #{self.id}'
 
     def clean(self):
         super().clean()
@@ -171,20 +170,20 @@ class Payment(TimeStampedModel, SoftDeletableModel):
                 payment = Payment.objects.select_for_update().get(id=self.id)
                 try:
                     finish_successful_payment(payment)
-                except PaymentProcessingError:
-                    return
+                except Exception as e:
+                    raise ValidationError(str(e))
             elif previous_status == PaymentStatus.COMPLETED and self.status == PaymentStatus.REFUNDED:
                 payment = Payment.objects.select_for_update().get(id=self.id)
                 try:
                     process_payment_status(payment)
-                except PaymentProcessingError:
-                    return
+                except Exception as e:
+                    raise ValidationError(str(e))
             elif previous_status == PaymentStatus.PENDING and self.status == PaymentStatus.CANCELLED:
                 payment = Payment.objects.select_for_update().get(id=self.id)
                 try:
                     process_payment_status(payment)
-                except PaymentProcessingError:
-                    return
+                except Exception as e:
+                    raise ValidationError(str(e))
 
         # Execute the standard save if no service transition occurred
         super().save(*args, **kwargs)

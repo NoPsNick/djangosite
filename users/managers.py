@@ -3,9 +3,6 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 
 
-from users.services import RolePermissionService
-
-
 # class PhoneNumberManager(models.Manager):
 #     def get_selected_phone_number(self, user):
 #         phone_numbers = self.get_user_phone_numbers(user)
@@ -66,19 +63,16 @@ class CachedUserManager(UserManager):
             if not user.is_active:
                 raise PermissionDenied("User account is disabled")
             cache.set(cache_key, user, self.CACHE_TIMEOUT)
-            RolePermissionService().verify_role_status(user)
         return user
 
     def update(self, user, *args, **kwargs):
         super().update(user, *args, **kwargs)
         cache_key = self.get_cache_key(user.id)
         cache.set(cache_key, user, self.CACHE_TIMEOUT)
-        RolePermissionService().verify_role_status(user)
         return user
 
     def delete(self, *args, **kwargs):
         user = self.get(*args, **kwargs)
-        RolePermissionService().verify_role_status(user)
         cache_key = self.get_cache_key(user.id)
         super().delete(*args, **kwargs)
         cache.delete(cache_key)

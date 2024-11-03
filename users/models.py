@@ -121,7 +121,6 @@ class RoleType(TimeStampedModel):
     currency = models.CharField("Moeda", max_length=3, choices=CURRENCY_CHOICES, default=BRL)
     icon = models.CharField("Ícone", max_length=50)
     effective_days = models.DurationField("Dias de Vigência", default=timedelta(days=30))
-    permissions = models.ManyToManyField('auth.Permission', blank=True, related_name="role_perms")
 
     def __str__(self):
         return f"{self.name} - {self.get_currency_display()}"
@@ -150,12 +149,16 @@ class Role(StatusModel, TimeStampedModel):
 
     def save(self, *args, **kwargs):
         self.clean()
-        # Set expiration date if not set yet
-        if not self.expires_at:
-            self.expires_at = timezone.now() + self.role_type.effective_days
 
         # Automatically update the status
         self.verify_status()
+
+        if self.status == self.ATIVO and Role.objects.filter(user=self.user, status=self.ATIVO).exists():
+            raise ValidationError("O usuário já possui um cargo ativo.")
+
+        # Set expiration date if not set yet
+        if not self.expires_at:
+            self.expires_at = timezone.now() + self.role_type.effective_days
 
         super().save(*args, **kwargs)
 
@@ -222,8 +225,15 @@ class User(AbstractUser):
         return reverse("pages:update", kwargs={"user_id": self.id})
 
     def get_role_icon(self):
-        if self.role and self.role.role_type and not self.role.is_expired():
+        role = getattr(self, 'role', None)
+        if role and self.role.role_type and not self.role.is_expired():
             return self.role.role_type.icon
+        return ''
+
+    def get_role_info(self):
+        role = getattr(self, 'role', None)
+        if role and self.role.role_type and not self.role.is_expired():
+            return f"Nome: {self.role.role_type.name} Descrição: {self.role.role_type.description}"
         return ''
 
     def verify_pay_action(self, amount):
@@ -234,33 +244,37 @@ class User(AbstractUser):
             raise ValueError("Amount must be positive.")
         return self.balance >= amount
 
-    @transaction.atomic
     def pay_with_balance(self, amount):
         """
         Deduct the amount from the user's balance if possible, and return a tuple indicating success and amount used.
         If balance is insufficient, use the entire balance.
         """
         # Lock the user's balance row for update
-        user = User.objects.select_for_update().get(pk=self.pk)
+        try:
+            with transaction.atomic():
+                user = User.objects.select_for_update().get(pk=self.pk)
 
-        if user.verify_pay_action(amount):
-            # User can pay the entire amount
-            user.balance = Decimal(user.balance - amount)
-            user.save(update_fields=["balance"])
-            return True, None
-        else:
-            # User can pay only part of the amount
-            paid = user.balance
-            user.balance = 0
-            user.save(update_fields=["balance"])
-            return False, paid
+                if user.verify_pay_action(amount):
+                    # User can pay the entire amount
+                    user.balance = Decimal(user.balance - amount)
+                    user.save()
+                    return True, user.balance
+                else:
+                    # User can pay only part of the amount
+                    paid = user.balance
+                    return False, paid
+        except Exception as e:
+            raise ValidationError(str(e))
 
-    @transaction.atomic
     def refund_to_balance(self, amount):
-        user = User.objects.select_for_update().get(pk=self.pk)
-
-        user.balance = Decimal(user.balance + amount)
-        user.save(update_fields=["balance"])
+        try:
+            with transaction.atomic():
+                user = User.objects.select_for_update().get(pk=self.pk)
+                user.balance += Decimal(amount)
+                user.save(update_fields=['balance'])
+                return user.balance
+        except Exception as e:
+            raise ValidationError(str(e))
 
     # def verify_address(self):
     #     addresses = Address.objects.get_user_addresses(self)

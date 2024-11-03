@@ -129,7 +129,7 @@ class Product(TimeStampedModel):
         outdated_promotions = []
 
         # Filter for active promotions and check their validity
-        for promotion in self.promotions.filter(active=True):
+        for promotion in self.promotions.filter(status=Promotion.ATIVO):
             if not (promotion.starts_at <= now < promotion.expires_at):
                 # Only save if promotion state is outdated
                 if promotion.expires_at <= now:
@@ -193,12 +193,12 @@ class Stock(TimeStampedModel):
         # Update product cache since availability changed
         update_product_cache(sender=self, instance=self.product)
 
-    def can_sell(self, quantity=1):
+    def can_sell(self, quantity=0):
         """Check if there is enough stock to sell."""
         return self.units >= quantity
 
     @transaction.atomic
-    def sell(self, quantity=1):
+    def sell(self, quantity=0):
         from .services import update_product_cache
         """
         Safely reduce stock and increase units_sold using "transaction.atomic"
@@ -226,7 +226,7 @@ class Stock(TimeStampedModel):
         transaction.on_commit(lambda: update_product_cache(sender=updated_stock, instance=updated_stock.product))
 
     @transaction.atomic()
-    def successful_sell(self, quantity=1):
+    def successful_sell(self, quantity=0):
         from .services import update_product_cache
         """
         Safely reduce stock units_hold and increase units_sold using "transaction.atomic"
@@ -251,7 +251,7 @@ class Stock(TimeStampedModel):
         transaction.on_commit(lambda: update_product_cache(sender=updated_stock, instance=updated_stock.product))
 
     @transaction.atomic
-    def restore(self, quantity=1):
+    def restore(self, quantity=0):
         from .services import update_product_cache
         """
         Safely restore stock and reduce units_sold using "transaction.atomic"
@@ -268,7 +268,7 @@ class Stock(TimeStampedModel):
         transaction.on_commit(lambda: update_product_cache(sender=self, instance=self.product))
 
     @transaction.atomic
-    def restore_hold(self, quantity=1):
+    def restore_hold(self, quantity=0):
         from .services import update_product_cache
         """
         Safely restore stock hold and reduce units_sold using "transaction.atomic"
