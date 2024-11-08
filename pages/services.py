@@ -3,9 +3,12 @@ from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 from django.conf import settings
 
 from products.models import Promotion
+from products.services import update_product_cache
 from users.models import User
 from .models import About
-from .serializers import UserSerializer, PromotionSerializer, AboutSerializer
+from .serializers import AboutSerializer
+from products.serializers import PromotionSerializer
+from users.serializers import UserSerializer
 
 
 def get_user_data(current_user, target_user_id):
@@ -92,6 +95,7 @@ def update_promotion_cache(promotion):
 
     # Update the cache with the modified list
     cache.set('promotions_list', updated_promotions, timeout=settings.CACHE_TIMEOUT)
+    update_product_cache(None, promotion.product)
 
 
 def remove_promotion_cache(promotion):

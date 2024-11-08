@@ -95,11 +95,3 @@ class About(TimeStampedModel):
     def clean(self):
         if About.objects.exclude(id=self.id).filter(position=self.position).exists():
             raise ValidationError(f"A posição {self.position} já está em uso por outro conteúdo.")
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        cache.delete('about_list')
-
-    def delete(self, *args, **kwargs):
-        cache.delete('about_list')
-        super().delete(*args, **kwargs)

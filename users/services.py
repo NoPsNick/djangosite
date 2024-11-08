@@ -8,8 +8,8 @@ class RolePermissionService:
     @staticmethod
     def update_user_role(user, new_role=None):
         """
-        Update the user's permissions based on their role.
-        This method will remove old role permissions and add new ones.
+        Update the user's role.
+        This method will remove the role if none has been specified.
         """
         from .models import User, Role
         try:

@@ -1,54 +1,14 @@
 from django.contrib.auth.models import UserManager
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
+from django.db import models
+from django.conf import settings
+from django.db.models import Prefetch
 
-
-# class PhoneNumberManager(models.Manager):
-#     def get_selected_phone_number(self, user):
-#         phone_numbers = self.get_user_phone_numbers(user)
-#         if phone_numbers:
-#             return next((number for number in phone_numbers if number['selected']), None)
-#         return None
-#
-#     def get_user_phone_numbers(self, user):
-#         from pages.serializers import PhoneNumberSerializer
-#         cache_key = f"user_{user.id}_phone_numbers_list"
-#         phone_numbers = cache.get(cache_key)
-#
-#         if phone_numbers is None:
-#             # Only fetch phone numbers belonging to the specified user
-#             phone_numbers_queryset = self.filter(user=user).order_by('-selected', '-created')
-#             serializer = PhoneNumberSerializer(phone_numbers_queryset, many=True)
-#             phone_numbers = serializer.data
-#             cache.set(cache_key, phone_numbers, timeout=settings.CACHE_TIMEOUT)
-#
-#         return phone_numbers
-#
-#
-# class AddressManager(models.Manager):
-#     def get_selected_address(self, user):
-#         addresses = self.get_user_addresses(user)
-#         if addresses:
-#             return next((address for address in addresses if address['selected']), None)
-#         return None
-#
-#     def get_user_addresses(self, user):
-#         from pages.serializers import AddressSerializer
-#         cache_key = f"user_{user.id}_addresses_list"
-#         addresses = cache.get(cache_key)
-#
-#         if addresses is None:
-#             # Only fetch addresses belonging to the specified user
-#             addresses_queryset = self.filter(user=user).order_by('-selected', '-created')
-#             serializer = AddressSerializer(addresses_queryset, many=True)
-#             addresses = serializer.data
-#             cache.set(cache_key, addresses, timeout=settings.CACHE_TIMEOUT)
-#
-#         return addresses
 
 
 class CachedUserManager(UserManager):
-    CACHE_TIMEOUT = 60 * 15  # 15 minutes
+    CACHE_TIMEOUT = 60 * 60 * 2  # 2 hours
 
     @staticmethod
     def get_cache_key(user_id):
@@ -76,3 +36,36 @@ class CachedUserManager(UserManager):
         cache_key = self.get_cache_key(user.id)
         super().delete(*args, **kwargs)
         cache.delete(cache_key)
+
+
+class UserHistoryManager(models.Manager):
+    @staticmethod
+    def get_history_cache_key(user):
+        return f"user_{user.id}_histories"
+
+    def get_history(self, user):
+        from .serializers import UserHistorySerializer
+        cache_key = self.get_history_cache_key(user)
+        cached_histories = cache.get(cache_key)
+
+        if not cached_histories:
+            user_history_queryset = self.get(user=user)
+
+            cached_histories = {}
+
+            for history in user_history_queryset:
+                history_data = UserHistorySerializer(history).data
+                cached_histories[history.id] = history_data
+
+            cache.set(cache_key, cached_histories, getattr(settings, 'CACHE_TIMEOUT', 60*60*24*7))
+
+        return cached_histories
+
+    def get_queryset(self, *args, **kwargs):
+        return super().get_queryset(*args, **kwargs)
+
+
+class RoleManager(models.Manager):
+
+    def get_queryset(self, *args, **kwargs):
+        return super().get_queryset(*args, **kwargs).select_related('role_type', 'user')

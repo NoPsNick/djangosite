@@ -13,6 +13,7 @@ class StockInline(admin.StackedInline):  # or admin.StackedInline for a more det
     can_delete = False  # Disable deletion to ensure each product has a single stock entry
     max_num = 1
 
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = ['name', 'price', 'category', 'is_available', 'is_role', 'created', 'modified']
@@ -25,7 +26,7 @@ class ProductAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
-        return queryset.select_related('category', 'role_type')
+        return queryset.select_related('category', 'role_type').prefetch_related('stock')
 
 
 @admin.register(Category)

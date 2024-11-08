@@ -8,7 +8,7 @@ from django.utils import timezone
 from autoslug import AutoSlugField
 from model_utils.models import TimeStampedModel, StatusModel
 
-from .managers import AvailableManager
+from .managers import ProductManager
 from users.models import RoleType
 
 User = get_user_model()
@@ -45,8 +45,7 @@ class Product(TimeStampedModel):
     price = models.DecimalField("Preço", max_digits=10, decimal_places=2)
     is_available = models.BooleanField("Está disponível?", default=True)
 
-    objects = models.Manager()
-    available = AvailableManager()
+    objects = ProductManager()
 
     class Meta:
         ordering = ["-modified"]
@@ -123,7 +122,7 @@ class Product(TimeStampedModel):
     def get_absolute_url(self):
         return reverse("products:detail", kwargs={"slug": self.slug})
 
-    def check_not_updated_promotions(self):
+    def check_promotions(self):
         """Check if any active promotions are valid and raise a ValidationError if not."""
         now = timezone.now()  # Get the current time in the correct timezone
         outdated_promotions = []
@@ -302,7 +301,7 @@ class Promotion(StatusModel, TimeStampedModel):
     expires_at = models.DateTimeField("Data do fim")
     product = models.ForeignKey(Product, verbose_name="Produto", related_name="promotions", on_delete=models.CASCADE,
                                 to_field='slug')
-    status = models.CharField("Estado", max_length=10, choices=STATUS_CHOICES, default=EXPIRADO)
+    status = models.CharField("Estado", max_length=10, choices=STATUS_CHOICES, default=PENDENTE)
     changed_price = models.DecimalField("Preço em promoção", max_digits=10, decimal_places=2)
     original_price = models.DecimalField("Preço original", max_digits=10, decimal_places=2, blank=True,
                                          null=True)

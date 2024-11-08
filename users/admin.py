@@ -4,19 +4,20 @@ from django.db.models import Prefetch
 
 from .models import RoleType, Role, User
 
+from users.models import UserHistory
+
 
 class RoleInline(admin.TabularInline):
     model = Role
     fields = ['role_type', 'status', 'expires_at']
     extra = 0
-    max_num = 1
     can_delete = False
-    readonly_fields = ['created', 'modified', 'expires_at']
+    max_num = 0
+    readonly_fields = ['role_type', 'status', 'expires_at']
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-
-        return queryset.select_related('user', 'role_type')
+        # Optimize with select_related to load role_type in a single query
+        return super().get_queryset(request).select_related('role_type')
 
 
 @admin.register(RoleType)
@@ -57,15 +58,19 @@ class UserAdmin(admin.ModelAdmin):
     ordering = ['username']
     readonly_fields = ['last_login', 'date_joined']
     filter_horizontal = ['user_permissions']
-    inlines = [RoleInline]
+    inlines = [RoleInline]  # Use optimized RoleInline
 
     def get_queryset(self, request):
-        # Avoid duplicate queries by prefetching related data
-        return super().get_queryset(request).select_related('role', 'role__role_type'
-                                                            ).prefetch_related(
+        # Prefetch related data for user permissions and roles
+        return super().get_queryset(request).prefetch_related(
             Prefetch(
-            'user_permissions',
-            queryset=Permission.objects.select_related('content_type'))
+                'user_permissions',
+                queryset=Permission.objects.select_related('content_type')
+            ),
+            Prefetch(
+                'roles',
+                queryset=Role.objects.select_related('role_type'),
+            )
         )
 
     fieldsets = (
@@ -73,11 +78,20 @@ class UserAdmin(admin.ModelAdmin):
         ('Personal info', {'fields': ('first_name', 'last_name', 'email', 'birth_date', 'tos_accept')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
-        ('Other Info', {'fields': ('balance', 'role')}),
+        ('Other Info', {'fields': ('balance',)}),
     )
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
-        # Override user_permissions field to include prefetched content types, reducing redundant queries
+        # Prefetch related content_type for user_permissions
         if db_field.name == 'user_permissions':
             kwargs['queryset'] = Permission.objects.select_related('content_type')
         return super().formfield_for_manytomany(db_field, request, **kwargs)
+
+
+@admin.register(UserHistory)
+class UserHistoryAdmin(admin.ModelAdmin):
+    readonly_fields = ['user', 'status_changed']
+    autocomplete_fields = ['user']
+
+    def get_queryset(self, *args, **kwargs):
+        return super().get_queryset(*args, **kwargs).select_related('user')

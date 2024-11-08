@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load custom_filters %}
 
 {% block title %}
 Perfil - {{ user_data.username }}
@@ -45,14 +46,14 @@ Perfil - {{ user_data.username }}
 
                     <div class="row mb-3 align-items-center">
                         <div class="col-sm-4">
-                            <p class="text-muted mb-0">VIP</p>
+                            <p class="text-muted mb-0">Cargos</p>
                         </div>
                         <div class="col-sm-8">
-                            {% if user_data.role_info %}
-                                <p class="text-secondary mb-0">{{ user_data.role_info|linebreaksbr }}</p>
-                            {% else %}
-                                <a href="#" class="text-secondary mb-0">Você não é membro VIP, adiquira um plano clicando aqui</a>
-                            {% endif %}
+                            {% for id, role in user_data.role_info.items %}
+                                {{ user_data.role_icon|get_item:id }} <p class="text-secondary mb-0">{{ role|linebreaksbr }}</p>
+                            {% empty %}
+                                <a href="#" class="text-secondary mb-0">Você não possuí nenhum cargo, compre um clicando aqui.</a>
+                            {% endfor %}
                         </div>
                     </div>
                     {% url 'orders:order_list' as orders_url %}

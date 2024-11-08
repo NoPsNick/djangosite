@@ -34,6 +34,16 @@ def create_order(user, items_data):
             if not product:
                 raise ValidationError(f"O produto {item_data['slug']} não foi encontrado.")
 
+            try:
+                product.check_promotions()
+            except ValidationError:
+                order.status = Order.Cancelled
+                order.is_paid = False
+                order.save(update_fields=['is_paid', 'status'])
+                cache_key = orders_cache_key_builder(user.id)
+                cache.delete(cache_key)
+                raise ValidationError('Um erro ocorreu ao processar os produtos do pedido, crie outro pedido.')
+
             quantity = item_data['quantity']
 
             # Check stock from cache or product instance

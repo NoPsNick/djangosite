@@ -68,9 +68,16 @@ class UserOrderListView(LoginRequiredMixin, TemplateView):
                     Q(customer__username__icontains=search_query)
                 )
 
+            # Get the count once and pass it to the custom paginator
+            orders_adm_list = list(orders_adm)
+            adm_total_count = len(orders_adm_list)
             paginator = Paginator(orders_adm, 10)
+            paginator._count = adm_total_count
+
+            # Get the page number from the GET request and get the corresponding page object
             page_number = self.request.GET.get('page')
             page_obj = paginator.get_page(page_number)
+
             context['orders'] = page_obj
             return context
 
@@ -81,7 +88,9 @@ class UserOrderListView(LoginRequiredMixin, TemplateView):
                       if search_query.lower() in str(order['id']) or search_query.lower() in order['status'
                       ] or search_query.lower() in order['customer']]
 
+        total_count = len(orders)
         paginator = Paginator(orders, 10)
+        paginator._count = total_count
         page_number = self.request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 

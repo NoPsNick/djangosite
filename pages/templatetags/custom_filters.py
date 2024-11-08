@@ -12,3 +12,8 @@ def url_startswith(request_path, prefix, user_id=None):
     if user_id:
         prefix = prefix.replace(f"{user_id}/", '')
     return request_path.startswith(prefix)
+
+
+@register.filter
+def get_item(dictionary, key):
+    return dictionary.get(key)

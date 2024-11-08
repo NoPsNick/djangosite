@@ -178,10 +178,11 @@ class Payment(TimeStampedModel, SoftDeletableModel):
                     process_payment_status(payment)
                 except Exception as e:
                     raise ValidationError(str(e))
-            elif previous_status == PaymentStatus.PENDING and self.status == PaymentStatus.CANCELLED:
+            elif previous_status == PaymentStatus.PENDING and (self.status == PaymentStatus.CANCELLED
+                                                               or self.status == PaymentStatus.FAILED):
                 payment = Payment.objects.select_for_update().get(id=self.id)
                 try:
-                    process_payment_status(payment)
+                    process_payment_status(payment, new_status=self.status)
                 except Exception as e:
                     raise ValidationError(str(e))
 

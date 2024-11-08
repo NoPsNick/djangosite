@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
@@ -47,9 +48,11 @@ def update_promotion_post_save(sender, instance, **kwargs):
 @receiver(post_delete, sender=Promotion)
 def revert_price_on_promotion_delete(sender, instance, **kwargs):
     # Revert the product's price when a promotion is deleted
-    if instance.product and instance.original_price:
-        instance.product.price = instance.original_price
-        instance.product.save(update_fields=['price'])
+    with transaction.atomic():
+        product = Product.objects.select_for_update().get(pk=instance.product.pk)
+        if instance.product and instance.original_price:
+            product.price = instance.original_price
+            product.save(update_fields=['price'])
 
     # Remove the promotion from the cache
     remove_promotion_cache(instance)

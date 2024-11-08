@@ -10,7 +10,7 @@ from allauth.account.signals import (
     email_confirmed, email_removed, email_changed, email_added
 )
 
-from pages.serializers import UserSerializer
+from users.serializers import UserSerializer
 from users.models import Role
 
 User = get_user_model()
@@ -22,7 +22,7 @@ CACHE_TIMEOUT = settings.CACHE_TIMEOUT or 60 * 15  # Define your cache timeout c
 def add_role(sender, instance, **kwargs):
     from .services import RolePermissionService
     """
-    Adds VIP or staff permissions when a new role is assigned.
+    Adds VIP or staff role when a new role is assigned.
     """
     instance.verify_status()  # Make sure the role status is up-to-date
     RolePermissionService().update_user_role(user=instance.user, new_role=instance)

@@ -5,12 +5,14 @@ from django.core.exceptions import ValidationError
 from django.db.models import F, Sum
 from django.core.cache import cache
 from decimal import Decimal
+
+from django.urls import reverse
 from django.utils import timezone
 
 from .models import Payment, PaymentPromotionCode, PaymentStatus, PaymentMethod
 from products.models import PromotionCode
 from orders.models import Order
-from users.models import Role
+from users.models import Role, UserHistory
 
 User = get_user_model()
 logger = logging.getLogger('celery')
@@ -33,7 +35,7 @@ def create_payment(user: User, order: Order, payment_type, promo_codes: list = N
         if order.status == order.Cancelled:
             raise ValidationError("Este pedido foi cancelado.")
 
-        order_items = order.items.select_related('product', 'product__stock').all()
+        order_items = order.items.select_related('product', 'product__stock', "product__role_type").all()
         total_price = order_items.aggregate(total_price=Sum(F('product__price') * F('quantity')))['total_price']
         valid_promo_codes = []
         final_total_price = total_price  # Initialize the final total price to the initial total price
@@ -76,17 +78,19 @@ def create_payment(user: User, order: Order, payment_type, promo_codes: list = N
                 stock = getattr(item.product, 'stock', None)
                 product = item.product
                 try:
-                    product.check_not_updated_promotions()
+                    product.check_promotions()
                 except ValidationError as e:
                     order.status = order.Cancelled
                     order.save()
 
-                    payment.status = PaymentStatus.FAILED
                     payment.amount = final_total_price
-                    payment.save(default_service=True)
+                    process_payment_status(payment, items=order_items, new_status=PaymentStatus.FAILED)
+                    UserHistory.objects.create(status=UserHistory.payment_fail, user=payment.customer, info=
+                    f'Falha no pagamento #{payment.id}', link=reverse('payments:payment_detail', kwargs={
+                        "payment_id": payment.id}))
                     raise ValidationError(
-                        f"Error with product {product.name}, please create another order. "
-                        f"Reason: {e}")
+                        f"Erro com o produto {product.name}, crie outro pedido para o produto. "
+                        f"Motivo: {e}")
                 if stock:
                     if not stock.can_sell(item.quantity):
                         raise ValidationError(f"Não temos estoque suficiente para o produto: {product.name}")
@@ -96,9 +100,9 @@ def create_payment(user: User, order: Order, payment_type, promo_codes: list = N
             for promo_code in valid_promo_codes:
                 promo_code.increment_usage(user=user)
 
-            user_balance_check = payment.customer.pay_with_balance(amount=final_total_price)
+            payment.amount = final_total_price
+            user_balance_check = payment.customer.pay_with_balance(payment)
             if user_balance_check[0]:
-                payment.amount = final_total_price
                 finish_successful_payment(payment=payment)
             elif not user_balance_check[0]:
                 payment.amount = Decimal(final_total_price - user_balance_check[1])
@@ -107,29 +111,33 @@ def create_payment(user: User, order: Order, payment_type, promo_codes: list = N
                 payment.order.save(update_fields=['status'])
 
         cache.delete(payments_cache_key_builder(user.id))
+        UserHistory.objects.create(status=UserHistory.payment_create, user=payment.customer, info=
+        f'Criado o pagamento #{payment.id}', link=reverse('payments:payment_detail', kwargs={
+            "payment_id": payment.id}))
         return payment
     except Exception as e:
         raise ValidationError(str(e))
 
 
-def process_payment_status(payment: Payment, items=None):
+def process_payment_status(payment: Payment, items=None, new_status=None):
     from orders.models import Order
 
     # Determine new status and proceed only if conditions are met
-    if payment.status == PaymentStatus.COMPLETED:
-        new_status = PaymentStatus.REFUNDED
-    elif payment.status == PaymentStatus.PENDING:
-        new_status = PaymentStatus.CANCELLED
-    else:
-        # Raise an exception if payment new_status doesn't match refundable or cancelable status
-        raise ValidationError(f"Wrong payment status: {payment.status}. It's only possible to update "
-                              f"{PaymentStatus.PENDING} -> {PaymentStatus.CANCELLED} or {PaymentStatus.COMPLETED} -> "
-                              f"{PaymentStatus.REFUNDED}.")
+    if new_status is None:
+        if payment.status == PaymentStatus.COMPLETED:
+            new_status = PaymentStatus.REFUNDED
+        elif payment.status == PaymentStatus.PENDING:
+            new_status = PaymentStatus.CANCELLED
+        else:
+            # Raise an exception if payment new_status doesn't match refundable or cancelable status
+            raise ValidationError(f"Wrong payment status: {payment.status}. It's only possible to update "
+                                  f"{PaymentStatus.PENDING} -> {PaymentStatus.CANCELLED} or {PaymentStatus.COMPLETED} -> "
+                                  f"{PaymentStatus.REFUNDED}.")
 
     try:
         with transaction.atomic():
             # Refund or restore items in order
-            order_items = items or payment.order.items.select_related('product', 'product__stock').all()
+            order_items = items or payment.order.items.select_related('product', 'product__stock', "product__role_type").all()
             for item in order_items:
                 stock = getattr(item.product, 'stock', None)
                 if stock:
@@ -163,7 +171,7 @@ def process_payment_status(payment: Payment, items=None):
 
     # If no exceptions and the payment was refunded, give to the user his balance.
     if new_status == PaymentStatus.REFUNDED:
-        payment.customer.refund_to_balance(payment.amount)
+        payment.customer.refund_to_balance(payment)
 
 
 def finish_successful_payment(payment: Payment):
@@ -211,6 +219,9 @@ def finish_successful_payment(payment: Payment):
                 payment.order.save(update_fields=['status', 'is_paid'])
 
                 # Clear related cache
+                UserHistory.objects.create(status=UserHistory.payment_success, user=payment.customer, info=
+                f"Pagamento #{payment.id} efetuado com sucesso.", link=reverse('payments:payment_detail',
+                                                                               kwargs={"payment_id": payment.id}))
                 cache.delete(payments_cache_key_builder(payment.customer.id))
         except Exception as e:
             # Log the error or handle it as needed

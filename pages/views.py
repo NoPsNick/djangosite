@@ -87,60 +87,6 @@ class InternalUserViewSet(viewsets.ViewSet):
             return Response({"detail": "User not found"}, status=404)
 
 
-# @method_decorator(restrict_to_server, name='dispatch')
-# class AddressViewSet(viewsets.ModelViewSet):
-#     serializer_class = AddressSerializer
-#     permission_classes = [IsAuthenticated]
-#
-#     def get_queryset(self):
-#         user = self.request.user
-#         addresses = get_user_addresses(user)
-#         return addresses
-#
-#     def perform_create(self, serializer):
-#         instance = serializer.save(user=self.request.user)
-#         cache_key = f"user_{instance.user.id}_addresses"
-#         cache.delete(cache_key)
-#
-#     def perform_update(self, serializer):
-#         instance = serializer.save()
-#         cache_key = f"user_{instance.user.id}_addresses"
-#         cache.delete(cache_key)
-#
-#     def perform_destroy(self, instance):
-#         user_id = instance.user.id
-#         instance.delete()
-#         cache_key = f"user_{user_id}_addresses"
-#         cache.delete(cache_key)
-#
-#
-# @method_decorator(restrict_to_server, name='dispatch')
-# class PhoneNumberViewSet(viewsets.ModelViewSet):
-#     serializer_class = PhoneNumberSerializer
-#     permission_classes = [IsAuthenticated]
-#
-#     def get_queryset(self):
-#         user = self.request.user
-#         phone_numbers = get_user_numbers(user)
-#         return phone_numbers
-#
-#     def perform_create(self, serializer):
-#         instance = serializer.save(user=self.request.user)
-#         cache_key = f"user_{instance.user.id}_phone_numbers"
-#         cache.delete(cache_key)
-#
-#     def perform_update(self, serializer):
-#         instance = serializer.save()
-#         cache_key = f"user_{instance.user.id}_phone_numbers"
-#         cache.delete(cache_key)
-#
-#     def perform_destroy(self, instance):
-#         user_id = instance.user.id
-#         instance.delete()
-#         cache_key = f"user_{user_id}_phone_numbers"
-#         cache.delete(cache_key)
-
-
 @method_decorator(restrict_to_server, name='dispatch')
 class AboutAPIView(APIView):
     throttle_classes = [UserRateThrottle]

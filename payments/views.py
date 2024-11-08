@@ -30,10 +30,15 @@ class UserPaymentListView(LoginRequiredMixin, TemplateView):
                     Q(payment_method__payment_type__icontains=search_query)
                 )
 
+            payments_adm_list = list(payments_adm)
+            adm_total_count = len(payments_adm_list)
             paginator = Paginator(payments_adm, 10)
+            paginator._count = adm_total_count
+
             page_number = self.request.GET.get('page')
             page_obj = paginator.get_page(page_number)
             context['payments'] = page_obj
+
             return context
 
         payments = Payment.objects.get_cached_payments(customer=self.request.user)
@@ -43,7 +48,9 @@ class UserPaymentListView(LoginRequiredMixin, TemplateView):
                       if search_query.lower() in str(payment['id']) or search_query.lower() in payment['status'
                       ] or search_query.lower() in payment['customer']]
 
+        total_count = len(payments)
         paginator = Paginator(payments, 10)
+        paginator._count = total_count
         page_number = self.request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
