@@ -4,8 +4,8 @@ from django.core.paginator import Paginator
 
 
 from cart.forms import CartAddProductForm
-from .services import get_product_from_cache, get_category_from_cache, get_cached_product_slugs, \
-    get_cached_category_slugs
+from .services import (get_product_from_cache, get_category_from_cache, get_cached_product_slugs,
+                       get_cached_category_slugs)
 
 
 class ProductListView(TemplateView):

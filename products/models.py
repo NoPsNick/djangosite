@@ -8,7 +8,7 @@ from django.utils import timezone
 from autoslug import AutoSlugField
 from model_utils.models import TimeStampedModel, StatusModel
 
-from .managers import ProductManager
+from .managers import ProductManager, CategoryManager
 from users.models import RoleType
 
 User = get_user_model()
@@ -17,6 +17,8 @@ User = get_user_model()
 class Category(TimeStampedModel):
     name = models.CharField("Nome", max_length=255, unique=True)
     slug = AutoSlugField(unique=True, always_update=True, populate_from="name")
+
+    objects = CategoryManager()
 
     class Meta:
         ordering = ("name",)

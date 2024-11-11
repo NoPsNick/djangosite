@@ -52,11 +52,9 @@ INSTALLED_APPS = [
     # Aplicativos de terceiros
     'rest_framework',
     'rest_framework.authtoken',
-    'localflavor',
     'allauth',
     'allauth.account',
     'widget_tweaks',
-    'django_tables2',
     'crispy_forms',
     'crispy_bootstrap5',
     'debug_toolbar',

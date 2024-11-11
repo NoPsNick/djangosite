@@ -13,29 +13,29 @@ class RoleTypeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'effective_days']
 
 
+class StockSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Stock
+        fields = ['units']
+
+
 class ProductSerializer(serializers.ModelSerializer):
     link_absoluto = serializers.URLField(source='get_absolute_url', read_only=True)
     category = serializers.SlugRelatedField(slug_field='slug', read_only=True)
     role = RoleTypeSerializer(source='role_type', read_only=True)
+    stock = StockSerializer(read_only=True)
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'description', 'price', 'is_available', 'image', 'slug', 'link_absoluto', 'category',
-                  'role', 'is_role']
+        fields = ['id', 'name', 'description', 'price', 'stock', 'is_available', 'image', 'slug', 'link_absoluto',
+                  'category', 'role', 'is_role']
 
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
-
-
-class StockSerializer(serializers.ModelSerializer):
-    product = ProductSerializer()
-
-    class Meta:
-        model = Stock
-        fields = ['product', 'units']
 
 
 class PromotionSerializer(serializers.ModelSerializer):

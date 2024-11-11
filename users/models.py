@@ -102,6 +102,7 @@ class User(AbstractUser):
                                 on_delete=models.SET_NULL)
     balance = models.DecimalField(
         verbose_name="Saldo",
+        default=0,
         max_digits=10,
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0.00')), MaxValueValidator(Decimal('999.99'))]
