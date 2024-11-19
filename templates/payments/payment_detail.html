@@ -32,41 +32,16 @@
                 <thead class="table-dark">
                     <tr>
                         <th>ID do Pedido</th>
-                        <th>Estado do Pedido</th>
-                        <th>Total</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>{{ payment.order.id }}</td>
-                        <td>{{ payment.order.status }}</td>
-                        <td>R$ {{ payment.order.total_amount }}</td>
+                        <td>{{ payment.order }}</td>
                         <td>
-                            <a href="{% url 'orders:order_detail' order_id=payment.order.id %}">Ver Pedido</a>
+                            <a href="{% url 'orders:order_detail' order_id=payment.order %}">Ver Pedido</a>
                         </td>
                     </tr>
-                </tbody>
-            </table>
-            <h2 class="fw-bold">Produtos do Pedido</h2>
-            <table class="table table-striped table-hover table-bordered">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Produto</th>
-                        <th>Preço Unitário</th>
-                        <th>Quantidade</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in payment.order.products %}
-                        <tr>
-                            <td>{{ item.product.name }}</td>
-                            <td>R$ {{ item.product.price }}</td>
-                            <td>{{ item.quantity }}</td>
-                            <td>R$ {{ item.full_price }}</td>
-                        </tr>
-                    {% endfor %}
                 </tbody>
             </table>
         </div>

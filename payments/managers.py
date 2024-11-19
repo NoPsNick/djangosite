@@ -2,9 +2,6 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.core.cache import cache
 from django.conf import settings
-from django.db.models import Prefetch
-
-from orders.models import Item
 
 User = get_user_model()
 
@@ -27,11 +24,6 @@ class PaymentManager(models.Manager):
                 'order', # Fetch the order from the Payment
                 'payment_method', # Fetch the payment method from the Payment
             ).prefetch_related(
-                # Pre-fetch the payment order items(products)
-                Prefetch('order__items', queryset=Item.objects.select_related('product__category',
-                                                                              'product__stock',
-                                                                              'product__role_type')),
-                'order__customer', # Pre-fetch the payment order
                 'used_coupons__codes' # Pre-fetch the coupons that were used.
             ).order_by('-id')
             cached_payments = {}
@@ -70,11 +62,6 @@ class PaymentManager(models.Manager):
                 'order', # Fetch the order from the Payment
                 'payment_method', # Fetch the payment method from the Payment
             ).prefetch_related(
-                # Pre-fetch the payment order items(products)
-                Prefetch('order__items', queryset=Item.objects.select_related('product__category',
-                                                                              'product__stock',
-                                                                              'product__role_type')),
-                'order__customer', # Pre-fetch the payment order
                 'used_coupons__codes' # Pre-fetch the coupons that were used.
             )
             payment = self._cache_single_payment(payment_instance)

@@ -6,9 +6,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from autoslug import AutoSlugField
+from decimal import Decimal
 from model_utils.models import TimeStampedModel, StatusModel
 
-from .managers import ProductManager, CategoryManager
+from .managers import ProductManager, CategoryManager, PromotionManager
 from users.models import RoleType
 
 User = get_user_model()
@@ -126,24 +127,24 @@ class Product(TimeStampedModel):
 
     def check_promotions(self):
         """Check if any active promotions are valid and raise a ValidationError if not."""
-        now = timezone.now()  # Get the current time in the correct timezone
+        now = timezone.now()
+
+        # Separate promotions into active and outdated lists in a single loop
+        active_promotions = []
         outdated_promotions = []
 
-        # Filter for active promotions and check their validity
-        for promotion in self.promotions.filter(status=Promotion.ATIVO):
-            if not (promotion.starts_at <= now < promotion.expires_at):
-                # Only save if promotion state is outdated
-                if promotion.expires_at <= now:
-                    outdated_promotions.append(promotion)
-                    promotion.save()  # Save to update the promotion if necessary
+        for promotion in self.promotions.all():
+            if promotion.status == Promotion.EXPIRADO and self.price == promotion.original_price:
+                continue
+            if promotion.starts_at <= now < promotion.expires_at:
+                active_promotions.append(promotion)
+            elif promotion.expires_at <= now:
+                outdated_promotions.append(promotion)
 
-        if outdated_promotions:
-            # Raise an error if there are outdated promotions
-            raise ValidationError(
-                f"The following promotions are outdated: {', '.join([promo.name for promo in outdated_promotions])}"
-            )
-
-        return True  # All promotions are valid, or no promotion was found
+        # Raise error if there are outdated promotions or multiple active promotions
+        if outdated_promotions or len(active_promotions) > 1:
+            raise ValidationError("Um dos produtos estava com o preço incorreto, seu preço foi ajustado, verifique os"
+                                  " preços dos produtos em seu carrinho e tente novamente.")
 
 
 class Stock(TimeStampedModel):
@@ -179,33 +180,27 @@ class Stock(TimeStampedModel):
     def __str__(self):
         return f"{self.product.name} - {self.units} unidades"
 
-    def save(self, *args, **kwargs):
-        from .services import update_product_cache
-
-        # Update product availability based on stock
-        try:
-            updated_stock = Stock.objects.select_for_update().get(id=self.id)
-        except Stock.DoesNotExist:
-            updated_stock = self
-
-        self.product.is_available = updated_stock.units > 0
-        self.product.save(update_fields=['is_available'])
-        super().save(*args, **kwargs)
-        # Update product cache since availability changed
-        update_product_cache(sender=self, instance=self.product)
-
     def can_sell(self, quantity=0):
         """Check if there is enough stock to sell."""
         return self.units >= quantity
 
+    @staticmethod
+    def update_product_availability(stock_id, product):
+        updated_stock = Stock.objects.get(
+            id=stock_id)
+        available_units = updated_stock.units
+
+        # Set product availability based on the updated units
+        product.is_available = available_units > 0
+        product.save(update_fields=['is_available'])
+
     @transaction.atomic
-    def sell(self, quantity=0):
-        from .services import update_product_cache
+    def sell(self, product, quantity=0):
         """
         Safely reduce stock and increase units_sold using "transaction.atomic"
         and select_for_update to avoid race conditions.
         """
-        stock = Stock.objects.select_for_update().get(id=self.id)
+        stock = Stock.objects.select_for_update().select_related('product').get(id=self.id)
 
         if not stock.can_sell(quantity):
             raise ValidationError("Not enough stock available.")
@@ -216,19 +211,10 @@ class Stock(TimeStampedModel):
         stock.save(update_fields=['units', 'units_hold'])
 
         # After the update, fetch the updated units from the database
-        updated_stock = Stock.objects.get(id=stock.id)
-        available_units = updated_stock.units
-
-        # Set product availability based on the updated units
-        stock.product.is_available = available_units > 0
-        stock.product.save(update_fields=['is_available'])
-
-        # Only update cache after transaction is committed
-        transaction.on_commit(lambda: update_product_cache(sender=updated_stock, instance=updated_stock.product))
+        self.update_product_availability(stock.id, product)
 
     @transaction.atomic()
-    def successful_sell(self, quantity=0):
-        from .services import update_product_cache
+    def successful_sell(self, product, quantity=0):
         """
         Safely reduce stock units_hold and increase units_sold using "transaction.atomic"
         and select_for_update to avoid race conditions.
@@ -241,19 +227,10 @@ class Stock(TimeStampedModel):
         stock.save(update_fields=['units_sold', 'units_hold'])
 
         # After the update, fetch the updated units from the database
-        updated_stock = Stock.objects.get(id=stock.id)
-        available_units = updated_stock.units
-
-        # Set product availability based on the updated units
-        stock.product.is_available = available_units > 0
-        stock.product.save(update_fields=['is_available'])
-
-        # Only update cache after transaction is committed
-        transaction.on_commit(lambda: update_product_cache(sender=updated_stock, instance=updated_stock.product))
+        self.update_product_availability(stock.id, product)
 
     @transaction.atomic
     def restore(self, quantity=0):
-        from .services import update_product_cache
         """
         Safely restore stock and reduce units_sold using "transaction.atomic"
         and select_for_update to avoid race conditions.
@@ -265,12 +242,8 @@ class Stock(TimeStampedModel):
         stock.units_sold = F('units_sold') - quantity
         stock.save(update_fields=['units', 'units_sold'])
 
-        # Only update cache after transaction is committed
-        transaction.on_commit(lambda: update_product_cache(sender=self, instance=self.product))
-
     @transaction.atomic
     def restore_hold(self, quantity=0):
-        from .services import update_product_cache
         """
         Safely restore stock hold and reduce units_sold using "transaction.atomic"
         and select_for_update to avoid race conditions.
@@ -279,11 +252,8 @@ class Stock(TimeStampedModel):
 
         # Restore units and adjust units_sold atomically
         stock.units = F('units') + quantity
-        stock.units_sold = F('units_hold') - quantity
+        stock.units_hold = F('units_hold') - quantity
         stock.save(update_fields=['units', 'units_hold'])
-
-        # Only update cache after transaction is committed
-        transaction.on_commit(lambda: update_product_cache(sender=self, instance=self.product))
 
 
 class Promotion(StatusModel, TimeStampedModel):
@@ -307,6 +277,8 @@ class Promotion(StatusModel, TimeStampedModel):
     changed_price = models.DecimalField("Preço em promoção", max_digits=10, decimal_places=2)
     original_price = models.DecimalField("Preço original", max_digits=10, decimal_places=2, blank=True,
                                          null=True)
+
+    objects = PromotionManager()
 
     def clean(self):
         super().clean()
@@ -341,24 +313,15 @@ class Promotion(StatusModel, TimeStampedModel):
 
     def save(self, *args, **kwargs):
         now = timezone.now()  # Get the current time
-
         # Update promotion status based on the current time
-        if self.expires_at and now > self.expires_at:
-            self.status = self.EXPIRADO
-            if self.product.price != self.original_price:
-                self.product.price = self.original_price  # Revert to original price if promotion expired
-                self.product.save(update_fields=['price'])
-
-        elif self.starts_at and now >= self.starts_at:
+        if self.starts_at <= now < self.expires_at:
             self.status = self.ATIVO
-            if self.product.price != self.changed_price:
-                self.product.price = self.changed_price  # Apply promotion price
-                self.product.save(update_fields=['price'])
-
+        elif now > self.expires_at:
+            self.status = self.EXPIRADO
         else:
             self.status = self.PENDENTE
+        super().save(*args, **kwargs)
 
-        super().save(*args, **kwargs)  # Save the promotion instance
 
     def __str__(self):
         return f"Promoção do produto {self.product.name} - {self.status}"
@@ -463,13 +426,13 @@ class PromotionCode(TimeStampedModel):
         # Check the per-user usage limit
         if user:
             user_code_usage = PromotionCodeUsage.objects.get_or_create(user=user, promotion_code=self)
-            if user_code_usage.user_usage_count >= self.user_usage_limit:
+            if self.user_usage_limit and user_code_usage.user_usage_count >= self.user_usage_limit:
                 raise ValidationError(f"This promotion code has reached its usage limit for user {user.username}.")
 
         return True
 
     @transaction.atomic
-    def apply_discount(self, product, category=None):
+    def apply_discount(self, product: Product, category: Category = None) -> Decimal:
         """
         Apply the discount to a product. Returns the discounted price.
         """
@@ -480,23 +443,29 @@ class PromotionCode(TimeStampedModel):
         if not self.product and not self.category:
             raise ValidationError("This code is not applicable to any product or category.")
         # Check if the code is applicable to the product or category
-        if self.product and self.product != product:
-            raise ValidationError("This promotion code cannot be used for this product.")
 
-        if self.category and (not category or self.category != category):
-            raise ValidationError("This promotion code cannot be used for this category.")
-
-        if product.promotion.exists() and not self.can_with_promotion:
+        if product.promotions.exists() and not self.can_with_promotion:
             raise ValidationError("This product already has an active promotion and this code cannot be applied.")
 
-        # Apply the discount (either fixed amount or percentage)
+        # Check if the discount is applicable to the product
+        if self.product and self.product != product:
+            return Decimal(0)
+
+        # Check if the discount is applicable to the category
+        if self.category and (not category or self.category != category):
+            return Decimal(0)
+
+        # Apply fixed amount discount
         if self.discount_amount:
-            return max(product.price - self.discount_amount, 0)
-        elif self.discount_percentage:
+            return Decimal(max(product.price - self.discount_amount, Decimal(0)))
+
+        # Apply percentage discount
+        if self.discount_percentage:
             discount = (self.discount_percentage / 100) * product.price
-            return max(product.price - discount, 0)
-        else:
-            raise ValidationError("No valid discount available for this code.")
+            return Decimal(max(product.price - discount, Decimal(0)))
+
+        # No valid discount found
+        raise ValidationError("No valid discount available for this code.")
 
     @transaction.atomic
     def increment_usage(self, user=None):

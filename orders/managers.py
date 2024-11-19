@@ -18,13 +18,13 @@ class OrderManager(models.Manager):
         from .models import Item
         from .services import orders_cache_key_builder
         cache_key = orders_cache_key_builder(customer.id)
-        cached_orders = cache.get(cache_key)
+        cached_orders = cache.get(cache_key, None)
 
         if cached_orders is None:
             # Use select_related for customer and prefetch_related for items and their related fields
             orders_query_set = self.filter(customer=customer).select_related('customer').prefetch_related(
                 Prefetch('items', queryset=Item.objects.select_related('product__category', 'product__role_type',
-                                                                       'product__stock')),
+                                                                       'product__stock'))
             ).order_by('-id')
 
             cached_orders = {}
@@ -63,22 +63,22 @@ class OrderManager(models.Manager):
                 Prefetch('items', queryset=Item.objects.select_related('product__category', 'product__role_type',
                                                                        'product__stock')),
             ).order_by('-id')
-            order = self._cache_single_order(order_instance)
+            order = self.cache_single_order(order_instance)
 
         return order
 
     @staticmethod
-    def _cache_single_order(order_instace):
+    def cache_single_order(order_instance):
         """
         Helper method to add a single order to the cached bulk data if missing.
         """
         from orders.serializers import OrderSerializer
         from .services import orders_cache_key_builder
-        cache_key = orders_cache_key_builder(order_instace.customer.id)
+        cache_key = orders_cache_key_builder(order_instance.customer.id)
         cached_orders = cache.get(cache_key) or {}
 
-        order_data = OrderSerializer(order_instace).data
-        cached_orders[order_instace.id] = order_data
+        order_data = OrderSerializer(order_instance).data
+        cached_orders[order_instance.id] = order_data
 
         # Update the bulk cache with the new order data
         cache.set(cache_key, cached_orders, timeout=getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))

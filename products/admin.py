@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import Q
 
 from .models import Category, Product, Stock, PromotionCode, PromotionCodeUsage
 
@@ -27,6 +28,21 @@ class ProductAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         return queryset.select_related('category', 'role_type').prefetch_related('stock')
+
+    def get_search_results(self, request, queryset, search_term):
+        """
+        Optimize search results for the admin's autocomplete fields and other search functionalities.
+        """
+        queryset = queryset.select_related('category', 'role_type')  # Optimize foreign keys
+        queryset = queryset.prefetch_related('stock')  # Optimize related data
+        if search_term:
+            # Apply search filters on the fields defined in `search_fields`
+            queryset = queryset.filter(
+                Q(name__icontains=search_term) |
+                Q(slug__icontains=search_term) |
+                Q(description__icontains=search_term)
+            )
+        return super().get_search_results(request, queryset, search_term)
 
 
 @admin.register(Category)

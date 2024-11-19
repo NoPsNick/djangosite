@@ -5,7 +5,7 @@ from django.dispatch import receiver
 from django.core.cache import cache
 
 from .models import Payment, PaymentStatus
-from .services import payments_cache_key_builder, process_payment_status
+from .services import payments_cache_key_builder, PaymentService
 
 
 @receiver(post_delete, sender=Payment)
@@ -20,6 +20,6 @@ def payment_pre_delete(sender, instance, **kwargs):
     try:
         if instance.status == PaymentStatus.PENDING or instance.status == PaymentStatus.COMPLETED:
             with transaction.atomic():
-                process_payment_status(instance)
+                PaymentService(instance).process_payment_status()
     except ValidationError:
         pass

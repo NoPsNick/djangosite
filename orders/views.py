@@ -11,7 +11,8 @@ from django.views.generic import TemplateView, FormView
 from django.views.decorators.http import require_POST
 
 from payments.forms import PaymentForm
-from payments.services import create_payment
+from payments.services import PaymentService
+from products.models import Product, Promotion
 from .models import Order, Item
 from cart.services import get_cart_items, save_cart
 from .services import create_order
@@ -33,16 +34,29 @@ class CreateOrderView(LoginRequiredMixin, View):
         # Prepare the items data for the order
         items_data = [{'slug': item['product']['slug'], 'quantity': item['quantity']} for item in cart_items]
 
+        slugs = [item['slug'] for item in items_data]
+
+        # Retrieve all products and their stock in one query
+        products = Product.objects.filter(slug__in=slugs).select_related('stock', 'role_type', 'category'
+                                                                         ).prefetch_related('promotions')
         try:
             # Call the create_order function
-            order = create_order(user=request.user, items_data=items_data)
+            order = create_order(user=request.user, items_data=items_data, products=products)
             response = redirect(reverse('orders:order_detail', kwargs={'order_id': order.id}))
             save_cart(response, {}) # Set the cart with an empty dict(clear the cart items)
             messages.success(request, "Pedido criado com sucesso!")
             return response
         except ValidationError as e:
             messages.error(request, str(e))
+            self.update_promotions(products)
             return redirect(reverse('cart:detail'))
+
+    @staticmethod
+    def update_promotions(products):
+        for product in products:
+            promotions = getattr(product, 'promotions', []).exclude(status=Promotion.EXPIRADO)
+            for promotion in promotions:
+                promotion.save()
 
 
 @method_decorator(strict_rate_limit(url_names=['orders:order_list']), name='dispatch')
@@ -56,8 +70,10 @@ class UserOrderListView(LoginRequiredMixin, TemplateView):
         if self.request.user.is_staff:
             # Use select_related for foreign keys and prefetch_related for reverse relations
             orders_adm = Order.objects.select_related('customer').prefetch_related(
-                Prefetch('items', queryset=Item.objects.select_related('product'))
+                Prefetch('items', queryset=Item.objects.select_related('product__category', 'product__role_type',
+                                                                       'product__stock')),
             ).order_by('-id')
+            [Order.objects.cache_single_order(order) for order in orders_adm]
             if search_query:
                 orders_adm = orders_adm.filter(
                     Q(id__icontains=search_query) |
@@ -126,31 +142,39 @@ class PaymentCreateView(LoginRequiredMixin, FormView):
     def form_valid(self, form):
         user = self.request.user
         order_id = self.kwargs.get('order_id')
-        order = Order.objects.get(id=order_id, customer=user)
+        order = Order.objects.select_related('customer').prefetch_related(Prefetch(
+            'items',queryset=Item.objects.select_related('product__category',
+                                                         'product__role_type',
+                                                         'product__stock'))
+        ).get(id=order_id, customer=user)
 
         payment_method = form.cleaned_data['payment_method']
         promo_codes = form.cleaned_data['promo_codes']
 
         try:
-            # Call the service function to create the payment
-            payment = create_payment(user=user, order=order, payment_type=payment_method, promo_codes=promo_codes)
+            # Call the CreatePayment class to create the payment and get it id.
+            payment = PaymentService().create_payment(
+                user=user,
+                order=order,
+                payment_type=payment_method,
+                promo_codes=promo_codes)
             self.kwargs['payment_id'] = payment.id
             messages.success(self.request, "Pagamento criado com sucesso!")
-        except ValidationError as e:
+
+        except ValidationError:
             # Handle any errors that occur during payment creation
-            messages.error(self.request, f"Criação do pagamento falhou, motivo: {str(e)}")
+            messages.error(self.request, f"Criação do pagamento falhou, tente novamente mais tarde.")
             return self.form_invalid(form)
 
         return super().form_valid(form)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['order_id'] = self.kwargs.get('order_id')
+        context['order_id'] = self.kwargs.get('order_id', None)
         return context
 
     def get_success_url(self):
-        payment_id = self.kwargs.pop('payment_id',
-                                     None)
+        payment_id = self.kwargs.pop('payment_id', None)
         if payment_id:
             return reverse('payments:payment_detail', kwargs={'payment_id': payment_id})
         # Se o 'payment_id' não foi definido, retorna para a lista de pagamentos

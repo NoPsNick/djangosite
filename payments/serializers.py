@@ -4,7 +4,7 @@ from orders.serializers import OrderSerializer
 
 
 class PaymentSerializer(serializers.ModelSerializer):
-    order = OrderSerializer()
+    order = serializers.SerializerMethodField()
     used_coupons = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     payment_method = serializers.SerializerMethodField()
@@ -36,3 +36,5 @@ class PaymentSerializer(serializers.ModelSerializer):
         coupons = obj.used_coupons.all()
         return [coupon.code for coupon in coupons]
 
+    def get_order(self, obj):
+        return obj.order.id

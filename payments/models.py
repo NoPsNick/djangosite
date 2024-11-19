@@ -154,35 +154,35 @@ class Payment(TimeStampedModel, SoftDeletableModel):
                 raise ValidationError('You cannot change a "FAILED" or "REFUNDED" payment status.')
 
     def save(self, *args, **kwargs):
-        previous_status = None
-        if self.pk:
-            previous_status = Payment.objects.get(pk=self.pk).status
-
         # Standard save with default_service or new changes
         if kwargs.pop('default_service', False):
             super().save(*args, **kwargs)
             return
 
+        previous_status = None
+        if self.pk:
+            previous_status = Payment.objects.get(pk=self.pk).status
+
         # Handle status transitions if status has changed
         if previous_status != self.status:
-            from payments.services import finish_successful_payment, process_payment_status
+            from payments.services import PaymentService
             if previous_status == PaymentStatus.PENDING and self.status == PaymentStatus.COMPLETED:
                 payment = Payment.objects.select_for_update().get(id=self.id)
                 try:
-                    finish_successful_payment(payment)
+                    PaymentService(payment).finish_successful_payment()
                 except Exception as e:
                     raise ValidationError(str(e))
             elif previous_status == PaymentStatus.COMPLETED and self.status == PaymentStatus.REFUNDED:
                 payment = Payment.objects.select_for_update().get(id=self.id)
                 try:
-                    process_payment_status(payment)
+                    PaymentService(payment).process_payment_status()
                 except Exception as e:
                     raise ValidationError(str(e))
             elif previous_status == PaymentStatus.PENDING and (self.status == PaymentStatus.CANCELLED
                                                                or self.status == PaymentStatus.FAILED):
                 payment = Payment.objects.select_for_update().get(id=self.id)
                 try:
-                    process_payment_status(payment, new_status=self.status)
+                    PaymentService(payment).process_payment_status(new_status=self.status)
                 except Exception as e:
                     raise ValidationError(str(e))
 

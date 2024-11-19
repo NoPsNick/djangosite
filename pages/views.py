@@ -73,26 +73,3 @@ class LegalInfos(TemplateView):
         context['return_policies'] = return_policies
 
         return context
-
-
-@method_decorator(restrict_to_server, name='dispatch')
-class InternalUserViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated]
-
-    def list(self, request):
-        try:
-            user_data = get_user_data(request.user, request.user)
-            return Response(user_data)
-        except ValueError:
-            return Response({"detail": "User not found"}, status=404)
-
-
-@method_decorator(restrict_to_server, name='dispatch')
-class AboutAPIView(APIView):
-    throttle_classes = [UserRateThrottle]
-
-    def get(self, request, *args, **kwargs):
-        # Tenta obter os dados do cache
-        abouts = get_abouts()
-
-        return Response(abouts, status=status.HTTP_200_OK)

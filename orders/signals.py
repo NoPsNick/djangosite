@@ -8,6 +8,6 @@ from .services import orders_cache_key_builder
 
 @receiver(post_save, sender=Order)
 @receiver(post_delete, sender=Order)
-def product_post_save(sender, instance, **kwargs):
+def order_post_change(sender, instance, **kwargs):
     cache_key = orders_cache_key_builder(instance.customer.id)
     cache.delete(cache_key)

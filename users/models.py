@@ -40,7 +40,7 @@ class RoleType(TimeStampedModel):
         verbose_name_plural = "tipos de cargo"
 
 
-class Role(StatusModel, TimeStampedModel):
+class Role(TimeStampedModel):
     EXPIRADO = "Expirado"
     ATIVO = "Ativo"
     PENDENTE = "Pendente"
@@ -98,8 +98,6 @@ def verify_birth_date(birth_date):
 
 
 class User(AbstractUser):
-    role = models.OneToOneField(Role, verbose_name="Cargo", related_name="role", default=None, null=True, blank=True,
-                                on_delete=models.SET_NULL)
     balance = models.DecimalField(
         verbose_name="Saldo",
         default=0,

@@ -16,7 +16,7 @@ class RoleInline(admin.TabularInline):
     readonly_fields = ['role_type', 'status', 'expires_at']
 
     def get_queryset(self, request):
-        # Optimize with select_related to load role_type in a single query
+        # Use select_related to optimize the related field queries
         return super().get_queryset(request).select_related('role_type')
 
 
