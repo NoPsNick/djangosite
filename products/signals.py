@@ -1,10 +1,12 @@
-from django.db import transaction
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.core.exceptions import ObjectDoesNotExist
 import logging
 
+from decimal import Decimal
+
 from .models import Product, Category, Promotion, Stock
+from orders.models import Order, Item
 from .services import (
     update_product_cache,
     delete_product_cache,
@@ -35,6 +37,17 @@ def safe_delete_product_cache(product):
 @receiver(post_save, sender=Product)
 def product_post_save(sender, instance, **kwargs):
     safe_update_product_cache(instance)
+    # Fetch all related items where the order is still pending
+    pending_items = Item.objects.select_for_update().filter(
+        product=instance,
+        order__status=Order.Waiting_payment  # Adjust to your status choice
+    )
+
+    # Update the product_price in each related Item
+    for item in pending_items:
+        if item.price != instance.price:  # Update only if the price differs
+            item.price = Decimal(instance.price)  # Sync with new price
+            item.save(update_fields=['price'])
 
 
 @receiver(post_delete, sender=Product)
@@ -45,12 +58,7 @@ def product_post_delete(sender, instance, **kwargs):
 # Register signals for Stock
 @receiver(post_save, sender=Stock)
 def stock_post_save(sender, instance, **kwargs):
-    safe_update_product_cache(instance.product)
-
-
-@receiver(post_delete, sender=Stock)
-def stock_post_delete(sender, instance, **kwargs):
-    safe_delete_product_cache(instance.product)
+    instance.refresh_from_db(fields=['units', 'units_sold', 'units_hold'])
 
 
 # Register signals for Category

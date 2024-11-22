@@ -57,7 +57,6 @@ class Product(TimeStampedModel):
 
         indexes = [
             models.Index(fields=['is_available']),
-            models.Index(fields=['name']),
             models.Index(fields=['slug']),
             models.Index(fields=['category']),
         ]
@@ -185,10 +184,8 @@ class Stock(TimeStampedModel):
         return self.units >= quantity
 
     @staticmethod
-    def update_product_availability(stock_id, product):
-        updated_stock = Stock.objects.get(
-            id=stock_id)
-        available_units = updated_stock.units
+    def update_product_availability(updated_stock, product):
+        available_units = int(updated_stock.units)
 
         # Set product availability based on the updated units
         product.is_available = available_units > 0
@@ -200,18 +197,20 @@ class Stock(TimeStampedModel):
         Safely reduce stock and increase units_sold using "transaction.atomic"
         and select_for_update to avoid race conditions.
         """
+        # Use select_for_update to lock the row for update
         stock = Stock.objects.select_for_update().select_related('product').get(id=self.id)
 
         if not stock.can_sell(quantity):
             raise ValidationError("Not enough stock available.")
 
-        # Update the stock and units sold atomically
+        # Update the stock atomically using F expressions
         stock.units = F('units') - quantity
         stock.units_hold = F('units_hold') + quantity
+
+        # Save the changes to the database
         stock.save(update_fields=['units', 'units_hold'])
 
-        # After the update, fetch the updated units from the database
-        self.update_product_availability(stock.id, product)
+        self.update_product_availability(stock, product)
 
     @transaction.atomic()
     def successful_sell(self, product, quantity=0):
@@ -226,8 +225,7 @@ class Stock(TimeStampedModel):
         stock.units_hold = F('units_hold') - quantity
         stock.save(update_fields=['units_sold', 'units_hold'])
 
-        # After the update, fetch the updated units from the database
-        self.update_product_availability(stock.id, product)
+        self.update_product_availability(stock, product)
 
     @transaction.atomic
     def restore(self, quantity=0):
@@ -242,6 +240,8 @@ class Stock(TimeStampedModel):
         stock.units_sold = F('units_sold') - quantity
         stock.save(update_fields=['units', 'units_sold'])
 
+        self.update_product_availability(stock, stock.product)
+
     @transaction.atomic
     def restore_hold(self, quantity=0):
         """
@@ -254,6 +254,8 @@ class Stock(TimeStampedModel):
         stock.units = F('units') + quantity
         stock.units_hold = F('units_hold') - quantity
         stock.save(update_fields=['units', 'units_hold'])
+
+        self.update_product_availability(stock, stock.product)
 
 
 class Promotion(StatusModel, TimeStampedModel):
@@ -350,10 +352,6 @@ class PromotionCode(TimeStampedModel):
         'Product', verbose_name="Produto", on_delete=models.CASCADE,
         related_name='promotion_codes', null=True, blank=True
     )
-    category = models.ForeignKey(
-        'Category', verbose_name="Categoria", on_delete=models.CASCADE,
-        related_name='promotion_codes', null=True, blank=True
-    )
     role = models.ForeignKey(
         RoleType, verbose_name="Cargo", on_delete=models.CASCADE,
         related_name='promotion_codes', null=True, blank=True
@@ -378,7 +376,6 @@ class PromotionCode(TimeStampedModel):
 
         indexes = [
             models.Index(fields=['product']),
-            models.Index(fields=['category']),
         ]
 
     def clean(self):
@@ -394,11 +391,6 @@ class PromotionCode(TimeStampedModel):
             if self.role:
                 raise ValidationError("Códigos de promoção não aplicáveis a cargos não podem ter um Role associado.")
 
-        # Verifica se o código é aplicável a uma categoria ou produto sem conflito.
-        if self.product and self.category:
-            raise ValidationError(
-                "Um código de promoção deve ser aplicado a um produto ou a uma categoria, mas não a ambos.")
-
     def __str__(self):
         return self.code
 
@@ -409,50 +401,48 @@ class PromotionCode(TimeStampedModel):
         """
         # Check if the code is enabled
         if not self.status:
-            raise ValidationError("This promotion code is disabled.")
+            raise ValidationError(f"O código promocional {self.code} está inativo.")
 
         # Check if the promotion has started
         if self.start_at and timezone.now() < self.start_at:
-            raise ValidationError("This promotion code is not yet valid.")
+            raise ValidationError(f"O código promocional {self.code} não está ativo ainda.")
 
         # Check if the promotion has expired
         if self.expires_at and timezone.now() > self.expires_at:
-            raise ValidationError("This promotion code has expired.")
+            raise ValidationError(f"O código promocional {self.code} expirou.")
 
         # Check if the code has reached the global usage limit
         if self.usage_limit and self.usage_count >= self.usage_limit:
-            raise ValidationError("This promotion code has reached its usage limit.")
+            raise ValidationError(f"O código promocional {self.code} atingiu o uso máximo.")
 
         # Check the per-user usage limit
-        if user:
-            user_code_usage = PromotionCodeUsage.objects.get_or_create(user=user, promotion_code=self)
-            if self.user_usage_limit and user_code_usage.user_usage_count >= self.user_usage_limit:
-                raise ValidationError(f"This promotion code has reached its usage limit for user {user.username}.")
+        if user and self.user_usage_limit:
+            try:
+                user_code_usage = PromotionCodeUsage.objects.get(user=user, promotion_code=self)
+                if user_code_usage.user_usage_count >= self.user_usage_limit:
+                    raise ValidationError(f"Você já atingiu o uso máximo do código promocional {self.code}.")
+            except PromotionCodeUsage.DoesNotExist:
+                # If the user has no usage record, it's valid
+                pass
 
         return True
 
     @transaction.atomic
-    def apply_discount(self, product: Product, category: Category = None) -> Decimal:
+    def apply_discount(self, product: Product) -> Decimal:
         """
         Apply the discount to a product. Returns the discounted price.
         """
         # Check if the product is a role and check if the code is applicable to the role
         if getattr(product, "is_role", False):
             if not self.usable_in_roles or (self.role and self.role != product.role_type):
-                raise ValidationError("Este código não é aplicável ao cargo deste produto.")
-        if not self.product and not self.category:
-            raise ValidationError("This code is not applicable to any product or category.")
-        # Check if the code is applicable to the product or category
+                raise ValidationError(f"O código promocional {self.code} não é aplicável à cargos.")
 
-        if product.promotions.exists() and not self.can_with_promotion:
-            raise ValidationError("This product already has an active promotion and this code cannot be applied.")
+        if product.promotions.filter(status=Promotion.ATIVO).exists() and not self.can_with_promotion:
+            raise ValidationError(f"Algum produto já possuí uma promoção ativa, e o código promocional {self.code}"
+                                  " não é aplicável em produtos com promoções ativas.")
 
         # Check if the discount is applicable to the product
         if self.product and self.product != product:
-            return Decimal(0)
-
-        # Check if the discount is applicable to the category
-        if self.category and (not category or self.category != category):
             return Decimal(0)
 
         # Apply fixed amount discount
@@ -465,7 +455,7 @@ class PromotionCode(TimeStampedModel):
             return Decimal(max(product.price - discount, Decimal(0)))
 
         # No valid discount found
-        raise ValidationError("No valid discount available for this code.")
+        raise ValidationError(f"O código promocional {self.code} não possuí um desconto válido.")
 
     @transaction.atomic
     def increment_usage(self, user=None):
@@ -476,28 +466,54 @@ class PromotionCode(TimeStampedModel):
         # Increment global usage count
         self.usage_count = F('usage_count') + 1
         self.save(update_fields=['usage_count'])
+        self.refresh_from_db(fields=['usage_count'])
 
         # Track usage for the user
         if user:
-            promotion_code_usage = PromotionCodeUsage.objects.get_or_create(user=user, promotion_code=self)
-            promotion_code_usage.user_usage_count += 1
+            self.update_promotion_code_usage(user, usage_delta=1)
 
     @transaction.atomic
     def restore_usage(self, user=None):
         """
-        Restore the usage count of the promotion code.
-        :param user: Who did use the code
-        :return: None
+        Decrement the usage count of the promotion code.
+        Optionally track per-user usage if a user is provided.
         """
-        # Decrement global usage count
+        # Decrement global usage count (prevent going below zero)
         self.usage_count = F('usage_count') - 1
         self.save(update_fields=['usage_count'])
+        self.refresh_from_db(fields=['usage_count'])
 
         if user:
-            promotion_code_usage = PromotionCodeUsage.objects.get(user=user, promotion_code=self)
-            if promotion_code_usage and promotion_code_usage.user_usage_count > 0:
-                promotion_code_usage.user_usage_count = F('user_usage_count') - 1
-                promotion_code_usage.save(update_fields=['user_usage_count'])
+            self.update_promotion_code_usage(user, usage_delta=-1)
+
+    @transaction.atomic
+    def update_promotion_code_usage(self, user, usage_delta):
+        """
+        Update or create a PromotionCodeUsage instance for the given user.
+        :param user: The user associated with the promotion code
+        :param usage_delta: +1 to increment, -1 to decrement
+        """
+        try:
+            # Lock the row to avoid race conditions
+            promotion_code_usage = PromotionCodeUsage.objects.select_for_update().get(
+                user=user,
+                promotion_code=self
+            )
+            # Update the count (prevent going negative)
+            promotion_code_usage.user_usage_count = F('user_usage_count') + usage_delta
+        except PromotionCodeUsage.DoesNotExist:
+            # Create a new record with the appropriate initial count
+            initial_count = max(0, usage_delta)  # Prevent negative initial count
+            promotion_code_usage = PromotionCodeUsage(
+                user=user,
+                promotion_code=self,
+                user_usage_count=initial_count
+            )
+
+        # Save changes
+        promotion_code_usage.save()
+        # Refresh to ensure accurate in-memory values after F expression updates
+        promotion_code_usage.refresh_from_db(fields=['user_usage_count'])
 
 
 class PromotionCodeUsage(TimeStampedModel):
@@ -506,7 +522,7 @@ class PromotionCodeUsage(TimeStampedModel):
     """
     user = models.ForeignKey(User, verbose_name="Usuário", on_delete=models.PROTECT)
     promotion_code = models.ForeignKey(PromotionCode, verbose_name="Código Promocional", on_delete=models.PROTECT)
-    user_usage_count = models.PositiveIntegerField("Contagem de uso por usuário", default=0)
+    user_usage_count = models.PositiveIntegerField("Contagem de uso por usuário", default=1)
 
     class Meta:
         constraints = [

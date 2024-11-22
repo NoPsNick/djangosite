@@ -61,7 +61,7 @@ class ProductManager(models.Manager):
         try:
             products_dict = self.get_products_dict_from_cache()
 
-            if products_dict.get(product.slug):
+            if products_dict.get(product.slug, None):
                 products_dict[product.slug] = ProductSerializer(product).data
                 set_cache(PRODUCTS_DICT_KEY, products_dict)
             else:

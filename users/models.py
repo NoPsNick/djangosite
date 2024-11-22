@@ -8,7 +8,6 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 from decimal import Decimal
 
-from model_utils import Choices
 from model_utils.models import TimeStampedModel, StatusModel
 
 from datetime import timedelta, date
@@ -41,17 +40,17 @@ class RoleType(TimeStampedModel):
 
 
 class Role(TimeStampedModel):
-    EXPIRADO = "Expirado"
-    ATIVO = "Ativo"
-    PENDENTE = "Pendente"
+    expired = "expirado"
+    active = "ativo"
+    pending = "pendente"
 
     STATUS_CHOICES = [
-        (EXPIRADO, "Expirado"),
-        (ATIVO, "Ativo"),
-        (PENDENTE, "Pendente"),
+        (expired, "Expirado"),
+        (active, "Ativo"),
+        (pending, "Pendente"),
     ]
 
-    status = models.CharField("Status", max_length=10, choices=STATUS_CHOICES, default=PENDENTE)
+    status = models.CharField("Status", max_length=10, choices=STATUS_CHOICES, default=pending)
     role_type = models.ForeignKey(RoleType, related_name="roles", on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="roles", on_delete=models.CASCADE)
     expires_at = models.DateTimeField(blank=True, null=True, db_index=True)
@@ -70,11 +69,11 @@ class Role(TimeStampedModel):
 
     def verify_status(self):
         # Determine status based on expiration
-        self.status = self.EXPIRADO if self.expires_at and timezone.now() >= self.expires_at else self.ATIVO
+        self.status = self.expired if self.expires_at and timezone.now() >= self.expires_at else self.active
 
     def is_expired(self):
         # Use existing status verification to simplify expiration check
-        return self.status == self.EXPIRADO
+        return self.status == self.expired
 
     def __str__(self):
         return f"{self.user.username} - {self.role_type.name} ({self.get_status_display()})"
@@ -162,16 +161,16 @@ class User(AbstractUser):
                 if user.verify_pay_action(amount):
                     # User can pay the entire amount
                     user.balance = Decimal(user.balance) - amount
-                    UserHistory.objects.create(user=user, info=f'Saldo utilizado: {Decimal(amount)}, '
+                    history = UserHistory(user=user, info=f'Saldo utilizado: {Decimal(amount)}, '
                                                                f'no pagamento #{payment.id}.',
-                                               status=UserHistory.user_balance, link=reverse(
+                                               type=UserHistory.user_balance, link=reverse(
                         'payments:payment_detail', kwargs={
                         "payment_id": payment_id}))
                     user.save()
-                    return True, user.balance
+                    return True, history
                 else:
                     # User can pay only part of the amount
-                    paid = user.balance
+                    paid = Decimal(user.balance)
                     return False, paid
         except Exception as e:
             raise ValidationError(str(e))
@@ -182,14 +181,14 @@ class User(AbstractUser):
                 payment_id, payment_amount = payment.id, payment.amount
                 user = User.objects.select_for_update().get(pk=self.pk)
                 user.balance += Decimal(payment_amount)
-                UserHistory.objects.create(user=user, info=f'Saldo reembolsado: {Decimal(payment_amount)}, '
+                history = UserHistory(user=user, info=f'Saldo reembolsado: {Decimal(payment_amount)}, '
                                                            f'do pagamento #{payment_id}.',
-                                           status=UserHistory.user_balance_refund, link=reverse(
+                                           type=UserHistory.user_balance_refund, link=reverse(
                         'payments:payment_detail', kwargs={
                         "payment_id": payment_id}
                     ))
                 user.save(update_fields=['balance'])
-                return user.balance
+                return history
         except Exception as e:
             raise ValidationError(str(e))
 
@@ -204,7 +203,7 @@ class User(AbstractUser):
         ]
 
 
-class UserHistory(StatusModel):
+class UserHistory(TimeStampedModel):
     (user_balance,
      user_balance_refund,
      payment_create,
@@ -215,15 +214,16 @@ class UserHistory(StatusModel):
                         'payment_success',
                         'payment_fail'
                       )
-    STATUS = Choices(
+    type_choices = [
         (user_balance, 'Uso do saldo'),
         (user_balance_refund, 'Reembolso'),
         (payment_create, 'Pagamento criado'),
         (payment_success, 'Pagamento efetuado com sucesso'),
         (payment_fail, 'Pagamento falhou'),
-    )
+    ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name='Usuário', on_delete=models.CASCADE)
+    type = models.CharField(verbose_name='Tipo', max_length=50, choices=type_choices, default=user_balance)
     info = models.TextField(verbose_name='Informação', max_length=500, blank=True, null=True)
     link = models.TextField(verbose_name='Link', max_length=500, blank=True, null=True)
 

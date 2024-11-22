@@ -99,18 +99,18 @@ class PromotionAdmin(admin.ModelAdmin):
 
 @admin.register(PromotionCode)
 class PromotionCodeAdmin(admin.ModelAdmin):
-    list_display = ['code', 'name', 'status', 'product', 'category', 'role', 'usage_count', 'usage_limit', 'start_at',
+    list_display = ['code', 'name', 'status', 'product', 'role', 'usage_count', 'usage_limit', 'start_at',
                     'expires_at']
-    list_filter = ['status', 'start_at', 'expires_at', 'category', 'product', 'role']
-    search_fields = ['name', 'code', 'user__username', 'product__name', 'category__name', 'role__name']
-    autocomplete_fields = ['user', 'product', 'category', 'role']
+    list_filter = ['status', 'start_at', 'expires_at', 'product', 'role']
+    search_fields = ['name', 'code', 'user__username', 'product__name', 'role__name']
+    autocomplete_fields = ['user', 'product', 'role']
     ordering = ['-created']
     readonly_fields = ['created', 'modified']
     inlines = [PromotionCodeUsageInline]  # Inline for tracking promotion code usage by user
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
-        return queryset.select_related('user', 'product', 'category', 'role')
+        return queryset.select_related('user', 'product', 'role')
 
 
 @admin.register(PromotionCodeUsage)

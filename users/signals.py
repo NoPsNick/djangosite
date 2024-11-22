@@ -11,7 +11,7 @@ from allauth.account.signals import (
 )
 
 from users.serializers import UserSerializer
-from users.models import Role
+from users.models import Role, UserHistory
 
 User = get_user_model()
 
@@ -20,18 +20,17 @@ CACHE_TIMEOUT = settings.CACHE_TIMEOUT or 60 * 15  # Define your cache timeout c
 
 @receiver(post_save, sender=Role)
 def add_role(sender, instance, **kwargs):
-    from .services import RolePermissionService
     """
     Adds VIP or staff role when a new role is assigned.
     """
-    instance.verify_status()  # Make sure the role status is up-to-date
-    RolePermissionService().update_user_role(user=instance.user, new_role=instance)
+    from .middlewares.cached_user import get_user_cache_keys
+    [cache.delete(cache_key) for cache_key in get_user_cache_keys(instance.user)]
 
 
 @receiver(post_delete, sender=Role)
 def remove_role(sender, instance, **kwargs):
-    from .services import RolePermissionService
-    RolePermissionService().update_user_role(user=instance.user, new_role=None)
+    from .middlewares.cached_user import get_user_cache_keys
+    [cache.delete(cache_key) for cache_key in get_user_cache_keys(instance.user)]
 
 
 def get_cache_key(user_id):
@@ -78,14 +77,11 @@ def clear_user_cache_on_logout(sender, request, user, **kwargs):
     cache.delete(cache_key)
 
 
-@receiver(post_save, sender=User)
-def cache_user_data(sender, instance, **kwargs):
-    cache_key = get_cache_key(instance.pk)
-    serializer = UserSerializer(instance, context={'request': instance})
-    cache.set(cache_key, serializer.data, timeout=CACHE_TIMEOUT)
+@receiver(post_save, sender=UserHistory)
+def update_user_histories(sender, instance, **kwargs):
+    sender.objects.update_historic(instance.user.id, instance)
 
 
-@receiver(post_delete, sender=User)
-def clear_user_cache_data(sender, instance, **kwargs):
-    cache_key = get_cache_key(instance.pk)
-    cache.delete(cache_key)
+@receiver(post_delete, sender=UserHistory)
+def delete_user_histories(sender, instance, **kwargs):
+    sender.objects.delete_historic(instance.user.id, instance)

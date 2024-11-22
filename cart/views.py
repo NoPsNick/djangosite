@@ -24,12 +24,13 @@ def add_to_cart(request, slug):
     is_role_product = product.get('is_role', False)
 
     if is_role_product:
+        quantity = 1 # Roles always will be 1
         # Check for other role products in the cart
         role_products_in_cart = [
             s for s in cart if get_product_from_cache(s).get('is_role', False)
         ]
         if role_products_in_cart:
-            messages.error(request, 'Não é possível adicionar mais de um cargo ao carrinho.')
+            messages.error(request, 'Não é possível adicionar mais de UM cargo ao mesmo tempo no carrinho.')
             return redirect('cart:detail')
 
     # Update quantity if product is already in the cart

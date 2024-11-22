@@ -7,82 +7,93 @@ User = get_user_model()
 
 
 class PaymentManager(models.Manager):
+    CACHE_TIMEOUT = getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7)
 
-    def get_cached_payments(self, customer: User):
+    def _get_prefetched_queryset(self):
         """
-        Retrieves the cached list of payments for a customer.
-        Caches all payments in bulk if not cached.
+        Centralized query optimization logic with related fields and prefetching.
+        """
+        return self.select_related(
+            'customer',       # Fetch the customer from the Payment
+            'order',          # Fetch the order from the Payment
+            'payment_method', # Fetch the payment method from the Payment
+        ).prefetch_related(
+            'used_coupons'    # Pre-fetch the coupons that were used
+        )
+
+    def _get_cache_key(self, customer_id):
+        """
+        Centralized cache key generation.
+        """
+        from .services import payments_cache_key_builder
+        return payments_cache_key_builder(customer_id)
+
+    def get_cached_payments(self, customer):
+        """
+        Retrieves cached payments or queries and caches them in bulk.
         """
         from .serializers import PaymentSerializer
-        from .services import payments_cache_key_builder
-        cache_key = payments_cache_key_builder(customer.id)
+        cache_key = self._get_cache_key(customer.id)
         cached_payments = cache.get(cache_key)
 
         if cached_payments is None:
-            payments_query_set = self.filter(customer=customer).select_related(
-                'customer', # Fetch the customer from the Payment
-                'order', # Fetch the order from the Payment
-                'payment_method', # Fetch the payment method from the Payment
-            ).prefetch_related(
-                'used_coupons__codes' # Pre-fetch the coupons that were used.
-            ).order_by('-id')
-            cached_payments = {}
+            payments = self._get_prefetched_queryset().filter(customer=customer).order_by('-id')
+            cached_payments = {
+                payment.id: PaymentSerializer(payment).data
+                for payment in payments
+            }
+            cache.set(cache_key, cached_payments, timeout=self.CACHE_TIMEOUT)
 
-            # Serialize and store each payment in a dictionary with payment ID as key
-            for payment_instance in payments_query_set:
-                payment_data = PaymentSerializer(payment_instance).data
-                cached_payments[payment_instance.id] = payment_data
+        return cached_payments
 
-            # Cache all payments as a dictionary
-            cache.set(cache_key, cached_payments, timeout=getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
-
-        return list(cached_payments.values())
-
-    def get_cached_payment(self, payment_id, customer: User):
+    def get_cached_payment(self, payment_id, customer):
         """
-        Retrieves a single payment for a customer from cache.
-        Falls back to database if not cached.
+        Retrieves a single cached payment or fetches it from the database.
         """
-        from .services import payments_cache_key_builder
-        cache_key = payments_cache_key_builder(customer.id)
+        cache_key = self._get_cache_key(customer.id)
         cached_payments = cache.get(cache_key)
 
-        if cached_payments is None:
-            # If the bulk cache is missing, populate it
-            self.get_cached_payments(customer)
-            cached_payments = cache.get(cache_key)  # Retrieve again after populating the cache
+        if not cached_payments:
+            cached_payments = self.get_cached_payments(customer)
 
-        # Retrieve the specific payment by ID from the cached bulk data
         payment = cached_payments.get(payment_id)
-
-        if payment is None:
-            # Fallback to querying the database if the payment is not in cache
-            payment_instance = self.filter(customer=customer, id=payment_id).select_related(
-                'customer', # Fetch the customer from the Payment
-                'order', # Fetch the order from the Payment
-                'payment_method', # Fetch the payment method from the Payment
-            ).prefetch_related(
-                'used_coupons__codes' # Pre-fetch the coupons that were used.
-            )
-            payment = self._cache_single_payment(payment_instance)
+        if not payment:
+            # Fetch from DB and cache it
+            payment_instance = self._get_prefetched_queryset().filter(customer=customer, id=payment_id).first()
+            if payment_instance:
+                payment = self._cache_single_payment(payment_instance)
 
         return payment
 
-    @staticmethod
-    def _cache_single_payment(payment_instance):
+    def _cache_single_payment(self, payment_instance):
         """
-        Helper method to add a single payment to the cached bulk data if it's missing.
+        Caches a single payment into the bulk cache.
         """
-        from .services import payments_cache_key_builder
         from .serializers import PaymentSerializer
-        cache_key = payments_cache_key_builder(payment_instance.customer.id)
+        cache_key = self._get_cache_key(payment_instance.customer.id)
         cached_payments = cache.get(cache_key) or {}
 
-        # Serialize the payment data
         payment_data = PaymentSerializer(payment_instance).data
         cached_payments[payment_instance.id] = payment_data
-
-        # Update the bulk cache with the new payment data
-        cache.set(cache_key, cached_payments, timeout=getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
+        cache.set(cache_key, cached_payments, timeout=self.CACHE_TIMEOUT)
 
         return payment_data
+
+    def update_cached_payment(self, payment):
+        """
+        Updates or adds a payment to the cache.
+        """
+        payment_instance = self._get_prefetched_queryset().filter(id=payment.id).first()
+        if payment_instance:
+            self._cache_single_payment(payment_instance)
+
+    def delete_cached_payment(self, payment):
+        """
+        Removes a payment from the cache.
+        """
+        cache_key = self._get_cache_key(payment.customer.id)
+        cached_payments = cache.get(cache_key) or {}
+
+        if payment.id in cached_payments:
+            del cached_payments[payment.id]
+            cache.set(cache_key, cached_payments, timeout=self.CACHE_TIMEOUT)

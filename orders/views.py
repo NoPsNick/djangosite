@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 
 from payments.forms import PaymentForm
 from payments.services import PaymentService
-from products.models import Product, Promotion
+from products.models import Promotion
 from .models import Order, Item
 from cart.services import get_cart_items, save_cart
 from .services import create_order
@@ -34,21 +34,15 @@ class CreateOrderView(LoginRequiredMixin, View):
         # Prepare the items data for the order
         items_data = [{'slug': item['product']['slug'], 'quantity': item['quantity']} for item in cart_items]
 
-        slugs = [item['slug'] for item in items_data]
-
-        # Retrieve all products and their stock in one query
-        products = Product.objects.filter(slug__in=slugs).select_related('stock', 'role_type', 'category'
-                                                                         ).prefetch_related('promotions')
         try:
             # Call the create_order function
-            order = create_order(user=request.user, items_data=items_data, products=products)
+            order = create_order(user=request.user, items_data=items_data)
             response = redirect(reverse('orders:order_detail', kwargs={'order_id': order.id}))
             save_cart(response, {}) # Set the cart with an empty dict(clear the cart items)
             messages.success(request, "Pedido criado com sucesso!")
             return response
         except ValidationError as e:
             messages.error(request, str(e))
-            self.update_promotions(products)
             return redirect(reverse('cart:detail'))
 
     @staticmethod
@@ -97,12 +91,11 @@ class UserOrderListView(LoginRequiredMixin, TemplateView):
             context['orders'] = page_obj
             return context
 
-        orders = Order.objects.get_cached_orders(customer=self.request.user)
+        orders = list(Order.objects.get_cached_orders(customer=self.request.user).values())
 
         if search_query:
             orders = [order for order in orders
-                      if search_query.lower() in str(order['id']) or search_query.lower() in order['status'
-                      ] or search_query.lower() in order['customer']]
+                      if search_query.lower() in str(order['id']) or search_query.lower() in order['status']]
 
         total_count = len(orders)
         paginator = Paginator(orders, 10)
@@ -143,9 +136,8 @@ class PaymentCreateView(LoginRequiredMixin, FormView):
         user = self.request.user
         order_id = self.kwargs.get('order_id')
         order = Order.objects.select_related('customer').prefetch_related(Prefetch(
-            'items',queryset=Item.objects.select_related('product__category',
-                                                         'product__role_type',
-                                                         'product__stock'))
+            'items',queryset=Item.objects.select_related('product__role_type',
+                                                                'product__stock'))
         ).get(id=order_id, customer=user)
 
         payment_method = form.cleaned_data['payment_method']
@@ -153,18 +145,23 @@ class PaymentCreateView(LoginRequiredMixin, FormView):
 
         try:
             # Call the CreatePayment class to create the payment and get it id.
-            payment = PaymentService().create_payment(
+            payment_service = PaymentService()
+            payment_id = payment_service.create_payment(
                 user=user,
                 order=order,
                 payment_type=payment_method,
-                promo_codes=promo_codes)
-            self.kwargs['payment_id'] = payment.id
+                promo_codes=promo_codes).id
+            payment_service.bulk_create_histories()
+
+            self.kwargs['payment_id'] = payment_id
             messages.success(self.request, "Pagamento criado com sucesso!")
 
-        except ValidationError:
-            # Handle any errors that occur during payment creation
-            messages.error(self.request, f"Criação do pagamento falhou, tente novamente mais tarde.")
+        except ValidationError as e:
+            messages.error(self.request, f"Criação do pagamento falhou, motivo: {e}")
             return self.form_invalid(form)
+
+        except Exception:
+            messages.error(self.request, "Ocorreu um erro ao criar o pagamento!")
 
         return super().form_valid(form)
 

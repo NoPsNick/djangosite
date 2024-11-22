@@ -43,6 +43,9 @@ urlpatterns = [
     # PAGAMENTOS
     path('pagamentos/', include('payments.urls')),
 
+    # HISTÓRICO
+    path('historico/', include('users.urls')),
+
     # CONFIGURAÇÕES DO STATIC/MEDIA FILES
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
     re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),

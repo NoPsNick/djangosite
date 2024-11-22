@@ -3,7 +3,6 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.conf import settings
-from django.db.models import Prefetch
 
 
 
@@ -40,25 +39,44 @@ class CachedUserManager(UserManager):
 
 class UserHistoryManager(models.Manager):
     @staticmethod
-    def get_history_cache_key(user):
-        return f"user_{user.id}_histories"
+    def get_history_cache_key(user_id):
+        return f"user_{user_id}_histories"
 
-    def get_history(self, user):
-        from .serializers import UserHistorySerializer
-        cache_key = self.get_history_cache_key(user)
+    def get_cached_histories(self, user_id):
+        cache_key = self.get_history_cache_key(user_id)
         cached_histories = cache.get(cache_key)
 
-        if not cached_histories:
-            user_history_queryset = self.get(user=user)
+        if cached_histories is None:
+            cached_histories = self._get_all_histories(user_id)
 
-            cached_histories = {}
+        return cached_histories
 
-            for history in user_history_queryset:
-                history_data = UserHistorySerializer(history).data
-                cached_histories[history.id] = history_data
+    def update_historic(self, user_id, historic):
+        from .serializers import UserHistorySerializer
+        histories = self.get_cached_histories(user_id)
+        histories[historic.id] = UserHistorySerializer(historic).data
+        cache_key = self.get_history_cache_key(user_id)
+        cached_histories = histories
+        cache.set(cache_key, cached_histories, getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
 
-            cache.set(cache_key, cached_histories, getattr(settings, 'CACHE_TIMEOUT', 60*60*24*7))
+    def delete_historic(self, user_id, historic):
+        histories = self.get_cached_histories(user_id) or {}
+        histories.pop(historic.id, None)
+        cache_key = self.get_history_cache_key(user_id)
+        cached_histories = histories
+        cache.set(cache_key, cached_histories, getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
 
+    def _get_all_histories(self, user_id):
+        from .serializers import UserHistorySerializer
+        cache_key = self.get_history_cache_key(user_id)
+        user_history_queryset = self.filter(user=user_id)
+        cached_histories = {}
+
+        for history in user_history_queryset:
+            history_data = UserHistorySerializer(history).data
+            cached_histories[history.id] = history_data
+
+        cache.set(cache_key, cached_histories, getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
         return cached_histories
 
     def get_queryset(self, *args, **kwargs):

@@ -13,7 +13,7 @@ class LogUserActionsMiddleware:
         response = self.get_response(request)
 
         # Log user actions
-        user = getattr(request, 'user', None)  # Safely get 'user' attribute
+        user = getattr(request, 'user', None)
 
         if user and user.is_authenticated:
             logger.info(f'User {user.username} accessed {request.path}')

@@ -81,6 +81,10 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserHistorySerializer(serializers.ModelSerializer):
+    type_display = serializers.SerializerMethodField()
     class Meta:
         model = UserHistory
-        fields = ['status', 'status_changed', 'info', 'link']
+        fields = ['id', 'type_display', 'info', 'link']
+
+    def get_type_display(self, obj):
+        return obj.get_type_display()

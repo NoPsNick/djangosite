@@ -1,3 +1,5 @@
+from operator import attrgetter
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -71,7 +73,7 @@ class PaymentMethod(TimeStampedModel):
         ]
 
     def __str__(self):
-        return f"Método de pagamento {self.name or self.payment_type}"
+        return f"{self.get_payment_type_display()}"
 
 
 class PaymentStatus(models.TextChoices):
@@ -142,7 +144,7 @@ class Payment(TimeStampedModel, SoftDeletableModel):
     def clean(self):
         super().clean()
         if self.amount <= 0:
-            raise ValidationError('The payment amount must be positive.')
+            raise ValidationError('O valor do pagamento deve ser maior do que zero.')
         self.verify()
 
     def verify(self):
@@ -159,6 +161,8 @@ class Payment(TimeStampedModel, SoftDeletableModel):
             super().save(*args, **kwargs)
             return
 
+        # If it was saved by another service, like django admin, it will update based in the
+        # previous_status and new_status
         previous_status = None
         if self.pk:
             previous_status = Payment.objects.get(pk=self.pk).status
@@ -166,25 +170,20 @@ class Payment(TimeStampedModel, SoftDeletableModel):
         # Handle status transitions if status has changed
         if previous_status != self.status:
             from payments.services import PaymentService
-            if previous_status == PaymentStatus.PENDING and self.status == PaymentStatus.COMPLETED:
-                payment = Payment.objects.select_for_update().get(id=self.id)
-                try:
-                    PaymentService(payment).finish_successful_payment()
-                except Exception as e:
-                    raise ValidationError(str(e))
-            elif previous_status == PaymentStatus.COMPLETED and self.status == PaymentStatus.REFUNDED:
-                payment = Payment.objects.select_for_update().get(id=self.id)
-                try:
-                    PaymentService(payment).process_payment_status()
-                except Exception as e:
-                    raise ValidationError(str(e))
-            elif previous_status == PaymentStatus.PENDING and (self.status == PaymentStatus.CANCELLED
-                                                               or self.status == PaymentStatus.FAILED):
-                payment = Payment.objects.select_for_update().get(id=self.id)
-                try:
-                    PaymentService(payment).process_payment_status(new_status=self.status)
-                except Exception as e:
-                    raise ValidationError(str(e))
+            payment = Payment.objects.select_for_update().get(id=self.id)
+            payment_service = PaymentService(payment)
+            try:
+                if previous_status == PaymentStatus.PENDING and self.status == PaymentStatus.COMPLETED:
+                    payment_service.finish_successful_payment()
+                elif previous_status == PaymentStatus.COMPLETED and self.status == PaymentStatus.REFUNDED:
+                    payment_service.process_payment_status()
+                elif previous_status == PaymentStatus.PENDING and (self.status == PaymentStatus.CANCELLED
+                                                                   or self.status == PaymentStatus.FAILED):
+                    payment_service.process_payment_status(new_status=self.status)
+            except Exception as e:
+                raise e
+            finally:
+                payment_service.bulk_create_histories()
 
         # Execute the standard save if no service transition occurred
         super().save(*args, **kwargs)

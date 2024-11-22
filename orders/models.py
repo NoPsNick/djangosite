@@ -6,26 +6,28 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from decimal import Decimal
 
 from model_utils.models import TimeStampedModel, StatusModel
-from model_utils import Choices
 
 from orders.managers import OrderManager
 from products.models import Product, PromotionCode
+from users.models import RoleType
 
 User = get_user_model()
 
 
-class Order(TimeStampedModel, StatusModel):
-    Cancelled = "Cancelado"
-    Waiting_payment = "Aguardando pagamento"
-    Finalized = "Finalizado"
+class Order(TimeStampedModel):
+    Cancelled = "cancelado"
+    Waiting_payment = "aguardando"
+    Finalized = "finalizado"
 
-    STATUS = Choices(
+    status_choices = [
         (Waiting_payment, "Aguardando pagamento"),
         (Finalized, "Finalizado"),
         (Cancelled, "Pedido cancelado"),
-    )
+    ]
 
     customer = models.ForeignKey(User, related_name="pedidos", verbose_name="Cliente", on_delete=models.PROTECT)
+    status = models.CharField(verbose_name='Estado do pedido', choices=status_choices, default=Waiting_payment,
+                              max_length=50)
     is_paid = models.BooleanField(verbose_name="Foi pago?", default=False)
 
     objects = OrderManager()
@@ -52,6 +54,9 @@ class Order(TimeStampedModel, StatusModel):
 class Item(models.Model):
     order = models.ForeignKey(Order, verbose_name="Pedido", related_name="items", on_delete=models.CASCADE)
     product = models.ForeignKey(Product, verbose_name="Produto", related_name="order_items", on_delete=models.CASCADE)
+    price = models.DecimalField(verbose_name='Preço', max_digits=10, decimal_places=2, default=0, blank=True,
+                                null=True)
+    name = models.CharField(verbose_name='Nome do produto', max_length=50, default="", blank=True, null=True)
     quantity = models.PositiveIntegerField(
         validators=[
             MinValueValidator(1),
@@ -69,7 +74,9 @@ class Item(models.Model):
         ]
 
     def __str__(self):
-        return f"Item {self.product.name} (Quantity: {self.quantity})"
+        return f"Item {self.name or self.product.name} (Quantity: {self.quantity})"
 
     def get_total_price(self):
+        if self.price:
+            return Decimal(self.price * self.quantity)
         return Decimal(self.product.price * self.quantity)

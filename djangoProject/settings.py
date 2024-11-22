@@ -280,6 +280,7 @@ LOGGING = {
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, 'logs/django_info.log'),
             'formatter': 'verbose',
+            'encoding': 'utf-8'
         },
         'user_file': {
             'level': 'INFO',

@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}Histórico{% endblock title %}
+
+{% block content %}
+
+    <div class="container my-3">
+        <h1 class="fw-bold">Históricos</h1>
+
+        {% if histories %}
+            <form action="{% url 'users:historic_list' %}" method="get" class="d-flex mb-4">
+                <input name="search" type="text" class="form-control me-2" aria-label="Pesquisar" placeholder="Pesquisar..." value="{{ request.GET.search }}">
+                <button class="btn btn-outline-info" type="submit">
+                    <img src="{% static 'admin/img/search.svg' %}" alt="Pesquisar">
+                </button>
+            </form>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID do Histórico</th>
+                            <th>Tipo do Histórico</th>
+                            <th>Ações</th>
+                            <th>Informação do Histórico</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for historic in histories %}
+                            <tr>
+                                <td>{{ historic.id }}</td>
+                                <td>{{ historic.type_display }}</td>
+                                <th>{% if historic.link %}<a href="{{ historic.link }}">Ir</a>{% endif %}</th>
+                                <td>{{ historic.info|linebreaksbr }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <!-- Pagination -->
+            {% if histories.has_other_pages %}
+                {% with page=histories %}
+                    {% include "pagination.html" %}
+                {% endwith %}
+            {% endif %}
+        {% else %}
+            <p>Você não tem históricos.</p>
+        {% endif %}
+    </div>
+
+{% endblock content %}

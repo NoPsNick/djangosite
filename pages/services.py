@@ -3,7 +3,7 @@ from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 from django.conf import settings
 
 from products.models import Promotion
-from users.models import User
+from users.models import User, Role
 from .models import About
 from .serializers import AboutSerializer
 from users.serializers import UserSerializer
@@ -17,26 +17,22 @@ def get_user_data(current_user, target_user_id):
     if not current_user or not current_user.is_authenticated:
         raise ValueError("User is not authenticated")
 
-    # Try to fetch the target user object
-    try:
-        target_user = User.objects.get(pk=target_user_id)
-    except User.DoesNotExist:
-        raise ObjectDoesNotExist(f"User with ID {target_user_id} not found.")
-
-    # Allow only staff to view inactive users
-    if not target_user.is_active and not current_user.is_staff:
-        raise PermissionDenied("The requested profile is inactive.")
-
     # Cache key for user profile data
     cache_key = f"user_{target_user_id}_profile"
     user_data = cache.get(cache_key)
 
     if user_data is None:
+        target_user = User.objects.Prefetch(
+                'roles',
+                queryset=Role.objects.select_related('role_type'),
+            ).get(id=target_user_id)
         # If data is not in the cache, serialize and cache it
         serializer = UserSerializer(target_user, context={'request': current_user})
         user_data = serializer.data
-        cache.set(cache_key, user_data, timeout=settings.CACHE_TIMEOUT)
+        cache.set(cache_key, user_data, timeout=getattr(settings, 'CACHE_TIMEOUT', (60 * 60 * 24 * 7)))
 
+    if not user_data['is_active'] and not current_user.is_staff:
+        raise PermissionDenied("The requested profile is inactive.")
     return user_data
 
 

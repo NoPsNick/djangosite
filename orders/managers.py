@@ -8,79 +8,90 @@ User = get_user_model()
 
 
 class OrderManager(models.Manager):
+    CACHE_TIMEOUT = getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7)
 
-    def get_cached_orders(self, customer: User):
+    def _get_prefetched_queryset(self):
         """
-        Retrieves the cached list of orders for a customer in a single database hit.
-        Caches all orders in bulk if not cached.
+        Centralized method for query optimization with prefetch/related selects.
+        """
+        from .models import Item
+        return self.select_related('customer').prefetch_related(
+            'items'
+        )
+
+    def _get_cache_key(self, customer_id):
+        """
+        Centralized cache key generation.
+        """
+        from .services import orders_cache_key_builder
+        return orders_cache_key_builder(customer_id)
+
+    def get_cached_orders(self, customer):
+        """
+        Retrieves cached orders or queries and caches them in bulk.
         """
         from .serializers import OrderSerializer
-        from .models import Item
-        from .services import orders_cache_key_builder
-        cache_key = orders_cache_key_builder(customer.id)
-        cached_orders = cache.get(cache_key, None)
-
-        if cached_orders is None:
-            # Use select_related for customer and prefetch_related for items and their related fields
-            orders_query_set = self.filter(customer=customer).select_related('customer').prefetch_related(
-                Prefetch('items', queryset=Item.objects.select_related('product__category', 'product__role_type',
-                                                                       'product__stock'))
-            ).order_by('-id')
-
-            cached_orders = {}
-
-            for order_instance in orders_query_set:
-                # Serialize the order data
-                order_data = OrderSerializer(order_instance).data
-                cached_orders[order_instance.id] = order_data
-
-            # Cache all orders as a dictionary with their IDs as keys
-            cache.set(cache_key, cached_orders, timeout=getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
-
-        return list(cached_orders.values())
-
-    def get_cached_order(self, order_id, customer: User):
-        """
-        Retrieves a single order for a customer from cache.
-        Falls back to database if not cached.
-        """
-        from .services import orders_cache_key_builder
-        from .models import Item
-        cache_key = orders_cache_key_builder(customer.id)
+        cache_key = self._get_cache_key(customer.id)
         cached_orders = cache.get(cache_key)
 
         if cached_orders is None:
-            # Cache miss for the bulk data, so populate it
-            self.get_cached_orders(customer)
-            cached_orders = cache.get(cache_key)  # Retrieve again after caching
+            orders = self._get_prefetched_queryset().filter(customer=customer).order_by('-id')
+            cached_orders = {
+                order.id: OrderSerializer(order).data
+                for order in orders
+            }
+            cache.set(cache_key, cached_orders, timeout=self.CACHE_TIMEOUT)
 
-        # Retrieve the specific order by ID from the cached bulk data
+        return cached_orders
+
+    def get_cached_order(self, order_id, customer):
+        """
+        Retrieves a single cached order or fetches it from the database.
+        """
+        cache_key = self._get_cache_key(customer.id)
+        cached_orders = cache.get(cache_key)
+
+        if not cached_orders:
+            cached_orders = self.get_cached_orders(customer)
+
         order = cached_orders.get(order_id)
-
-        if order is None:
-            # Fallback to querying the database if the order is not found in cache
-            order_instance = self.filter(customer=customer, id=order_id).select_related('customer').prefetch_related(
-                Prefetch('items', queryset=Item.objects.select_related('product__category', 'product__role_type',
-                                                                       'product__stock')),
-            ).order_by('-id')
-            order = self.cache_single_order(order_instance)
+        if not order:
+            # Fetch from DB and cache it
+            order_instance = self._get_prefetched_queryset().filter(customer=customer, id=order_id).first()
+            if order_instance:
+                order = self.cache_single_order(order_instance)
 
         return order
 
-    @staticmethod
-    def cache_single_order(order_instance):
+    def cache_single_order(self, order_instance):
         """
-        Helper method to add a single order to the cached bulk data if missing.
+        Caches a single order into the bulk cache.
         """
-        from orders.serializers import OrderSerializer
-        from .services import orders_cache_key_builder
-        cache_key = orders_cache_key_builder(order_instance.customer.id)
+        from .serializers import OrderSerializer
+        cache_key = self._get_cache_key(order_instance.customer.id)
         cached_orders = cache.get(cache_key) or {}
 
         order_data = OrderSerializer(order_instance).data
         cached_orders[order_instance.id] = order_data
-
-        # Update the bulk cache with the new order data
-        cache.set(cache_key, cached_orders, timeout=getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
+        cache.set(cache_key, cached_orders, timeout=self.CACHE_TIMEOUT)
 
         return order_data
+
+    def update_cached_orders(self, order):
+        """
+        Updates or adds an order to the cache.
+        """
+        order_instance = self._get_prefetched_queryset().filter(id=order.id).first()
+        if order_instance:
+            self.cache_single_order(order_instance)
+
+    def delete_cached_order(self, order):
+        """
+        Removes an order from the cache.
+        """
+        cache_key = self._get_cache_key(order.customer.id)
+        cached_orders = cache.get(cache_key) or {}
+
+        if order.id in cached_orders:
+            del cached_orders[order.id]
+            cache.set(cache_key, cached_orders, timeout=self.CACHE_TIMEOUT)

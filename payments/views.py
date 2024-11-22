@@ -41,12 +41,11 @@ class UserPaymentListView(LoginRequiredMixin, TemplateView):
 
             return context
 
-        payments = Payment.objects.get_cached_payments(customer=self.request.user)
+        payments = list(Payment.objects.get_cached_payments(customer=self.request.user).values())
 
         if search_query:
             payments = [payment for payment in payments
-                      if search_query.lower() in str(payment['id']) or search_query.lower() in payment['status'
-                      ] or search_query.lower() in payment['customer']]
+                      if search_query.lower() in str(payment['id']) or search_query.lower() in payment['status']]
 
         total_count = len(payments)
         paginator = Paginator(payments, 10)

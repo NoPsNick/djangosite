@@ -2,24 +2,33 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models.signals import post_save, post_delete, pre_delete
 from django.dispatch import receiver
-from django.core.cache import cache
 
 from .models import Payment, PaymentStatus
-from .services import payments_cache_key_builder, PaymentService
+from .services import PaymentService
+
+
+@receiver(post_save, sender=Payment)
+def update_payment_cache(sender, instance, **kwargs):
+    """
+    Update the cache when a Payment is created or updated.
+    """
+    Payment.objects.update_cached_payment(instance)
 
 
 @receiver(post_delete, sender=Payment)
-@receiver(post_save, sender=Payment)
-def payment_change(sender, instance, **kwargs):
-    cache_key = payments_cache_key_builder(instance.customer.id)
-    cache.delete(cache_key)
+def delete_payment_cache(sender, instance, **kwargs):
+    """
+    Remove the Payment from cache when deleted.
+    """
+    Payment.objects.delete_cached_payment(instance)
 
 
 @receiver(pre_delete, sender=Payment)
 def payment_pre_delete(sender, instance, **kwargs):
     try:
         if instance.status == PaymentStatus.PENDING or instance.status == PaymentStatus.COMPLETED:
-            with transaction.atomic():
-                PaymentService(instance).process_payment_status()
+            payment_service = PaymentService(instance)
+            payment_service.process_payment_status(_save=False)
+            payment_service.bulk_create_histories()
     except ValidationError:
         pass

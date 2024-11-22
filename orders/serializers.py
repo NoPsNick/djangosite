@@ -4,12 +4,11 @@ from products.serializers import ProductSerializer
 
 
 class ItemSerializer(serializers.ModelSerializer):
-    product = ProductSerializer(read_only=True)
     full_price = serializers.DecimalField(source='get_total_price', max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = Item
-        fields = ['product', 'quantity', 'full_price']
+        fields = ['name', 'price', 'quantity', 'full_price']
         read_only_fields = ['quantity']
 
 

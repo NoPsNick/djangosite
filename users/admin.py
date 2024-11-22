@@ -90,7 +90,7 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(UserHistory)
 class UserHistoryAdmin(admin.ModelAdmin):
-    readonly_fields = ['user', 'status_changed']
+    readonly_fields = ['user', 'type']
     autocomplete_fields = ['user']
 
     def get_queryset(self, *args, **kwargs):
