@@ -43,7 +43,7 @@
                 <tbody>
                     {% for item in order.products %}
                         <tr>
-                            <td>{{ item.name }}</td>
+                            <td><a href="{% url 'products:detail' slug=item.slug %}">{{ item.name }}</a></td>
                             <td>{{ item.quantity }}</td>
                             <td>{{ item.full_price }}</td>
                         </tr>
@@ -51,5 +51,10 @@
                 </tbody>
             </table>
         </div>
+        <p class="text-end">
+            <a href="{% url 'orders:order_list' %}">
+                Voltar aos pedidos
+            </a>
+        </p>
     </div>
 {% endblock content %}
