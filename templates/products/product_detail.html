@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}{{ product.name }}{% endblock title %}
+
+{% block content %}
+
+    <div class="container my-4">
+    <div class="row">
+        <div class="col-lg-4 mb-4 mb-lg-0 text-center">
+            {% if product.image %}
+                <img class="img-fluid border rounded" src="/media/{{ product.image }}" alt="{{ product.name }}">
+            {% else %}
+                <img class="img-fluid border rounded" src="{% static 'images/no_image.jpg' %}" alt="No image available">
+            {% endif %}
+        </div>
+        
+        <div class="col-lg-8">
+            <h1 class="fw-bold mb-2">{{ product.name }}</h1>
+            <h4 class="text-muted mb-3">R$ {{ product.price }}</h4>
+            {% if product.role.effective_days %}
+                <p><strong>Dias de vigência:</strong> {{ product.role.effective_days }}</p>
+            {% endif %}
+            <p>{{ product.description|linebreaksbr }}</p>
+
+            {% if product.slug not in cart_info %}
+                <form class="mt-4" action="{% url 'cart:cart_add' slug=product.slug %}" method="post">
+                    {% if not product.is_role %}
+                        <div class="mb-3">
+                            {{ form.quantity.label_tag }}
+                            {% render_field form.quantity class+="form-control" %}
+                            {{ form.override }}
+                        </div>
+                    {% else %}
+                        <div class="mb-3">
+                        Quantidade: 1
+                        </div>
+                    {% endif %}
+                    {% csrf_token %}
+                    <button class="btn btn-success btn-lg" type="submit">
+                        Adicionar ao Carrinho
+                    </button>
+                </form>
+            {% else %}
+                <p class="mt-4">
+                    Produto já está no <a href="{% url 'cart:detail' %}" class="text-success fw-bold">carrinho</a>.
+                </p>
+            {% endif %}
+            
+            <a href="javascript:history.back()" class="d-inline-block mt-4 text-decoration-none">
+                <i class="fas fa-arrow-left"></i> Voltar para a página anterior
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock content %}

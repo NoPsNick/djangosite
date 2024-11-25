@@ -1,0 +1,6 @@
+{% extends "account/email/base_message.txt" %}
+{% load account %}
+
+{% block content %}{% autoescape off %}{% user_display user as user_display %}Você está recebendo este e-mail para confirmar o e-mail enviado pelo usuário {{ user_display }}.
+
+Para confirmar que essa ação foi correta: {{ activate_url }}{% endautoescape %}{% endblock %}

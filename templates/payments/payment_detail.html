@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}Detalhes do Pagamento{% endblock %}
+
+{% block content %}
+    <div class="container my-3">
+        <h1 class="fw-bold">Pagamento #{{ payment.id }}</h1>
+        
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID do Pagamento</th>
+                        <th>Estado do Pagamento</th>
+                        <th>Método utilizado no Pagamento</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ payment.id }}</td>
+                        <td>{{ payment.status }}</td>
+                        <td>{{ payment.payment_method }}</td>
+                        <td>R$ {{ payment.amount }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h2 class="fw-bold">Pagamento do Pedido #{{ payment.order.id }}</h2>
+            <table class="table table-striped table-hover table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID do Pedido</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ payment.order }}</td>
+                        <td>
+                            <a href="{% url 'orders:order_detail' order_id=payment.order %}">Ver Pedido</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            {% if payment.used_coupons %}
+                <h2 class="fw-bold">Códigos promocionais utilizados</h2>
+                <table class="table table-striped table-hover table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Código</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for code in payment.used_coupons %}
+                            <tr>
+                                <td>{{ code }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+        <p class="text-end">
+            <a href="{% url 'payments:payment_list' %}">
+                Voltar aos pagamentos
+            </a>
+        </p>
+    </div>
+{% endblock content %}

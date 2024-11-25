@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}Pagamentos{% endblock %}
+
+{% block content %}
+    <div class="container my-3">
+        <h1 class="fw-bold">Meus Pagamentos</h1>
+
+        {% if payments %}
+            <form action="{% url 'payments:payment_list' %}" method="get" class="d-flex mb-4">
+                <input name="search" type="text" class="form-control me-2" aria-label="Pesquisar" placeholder="Pesquisar..." value="{{ request.GET.search }}">
+                <button class="btn btn-outline-info" type="submit">
+                    <img src="{% static 'admin/img/search.svg' %}" alt="Pesquisar">
+                </button>
+            </form>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID do Pagamento</th>
+                            <th>Estado do Pagamento</th>
+                            <th>Método utilizado no Pagamento</th>
+                            <th>Total</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                            <tr>
+                                <td>{{ payment.id }}</td>
+                                <td>{{ payment.status }}</td>
+                                <td>{{ payment.payment_method }}</td>
+                                <td>{{ payment.amount }}</td>
+                                <td>
+                                    <a href="{% url 'payments:payment_detail' payment_id=payment.id %}">Ver Pagamento</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <!-- Pagination -->
+            {% if payments.has_other_pages %}
+                {% with page=payments %}
+                    {% include "pagination.html" %}
+                {% endwith %}
+            {% endif %}
+        {% else %}
+            <p>Você não tem pagamentos.</p>
+        {% endif %}
+    </div>
+{% endblock %}

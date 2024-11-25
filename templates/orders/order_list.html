@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}Pedidos{% endblock %}
+
+{% block content %}
+    <div class="container my-3">
+        <h1 class="fw-bold">Meus Pedidos</h1>
+
+        {% if orders %}
+            <form action="{% url 'orders:order_list' %}" method="get" class="d-flex mb-4">
+                <input name="search" type="text" class="form-control me-2" aria-label="Pesquisar" placeholder="Pesquisar..." value="{{ request.GET.search }}">
+                <button class="btn btn-outline-info" type="submit">
+                    <img src="{% static 'admin/img/search.svg' %}" alt="Pesquisar">
+                </button>
+            </form>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID do Pedido</th>
+                            <th>Estado do Pedido</th>
+                            <th>Total</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                            <tr>
+                                <td>{{ order.id }}</td>
+                                <td>{{ order.status }}</td>
+                                {% if user.is_staff %}
+                                    <td>R$ {{ order.get_total_amount }}</td>
+                                {% else %}
+                                    <td>R$ {{ order.total_amount }}</td>
+                                {% endif %}
+                                <td>
+                                    <a href="{% url 'orders:order_detail' order_id=order.id %}">Ver Pedido</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <!-- Pagination -->
+            {% if orders.has_other_pages %}
+                {% with page=orders %}
+                    {% include "pagination.html" %}
+                {% endwith %}
+            {% endif %}
+        {% else %}
+            <p>Você não tem pedidos.</p>
+        {% endif %}
+    </div>
+{% endblock %}

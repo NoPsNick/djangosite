@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block head %}
+<style>
+  .original-price {
+    color: red; /* Sets the text color to red */
+    text-decoration: line-through; /* Adds the line through effect */
+  }
+</style>
+{% endblock head %}
+
+{% block content %}
+
+<div class="container my-3 align-items-center">
+    <h1 class="font-weight-bold">Seja bem-vindo!</h1>
+    <section class="menu" id="menu">
+        {% for promotion in promotions %}
+            <!-- Product Card -->
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <a href="{{ promotion.product_link }}">
+                        {% if promotion.product_image %}
+                        <img class="card-img-top img-fluid" src="{{ promotion.product_image }}" alt="{{ promotion.product_name }}">
+                        {% else %}
+                        <img class="card-img-top img-fluid" src="{% static 'images/no_image.jpg' %}" alt="No image available">
+                        {% endif %}
+                    </a>
+                    <div class="card-body d-flex flex-column justify-content-between">
+                        {% if promotion.status == "Ativo" %}
+                            <a class="text-decoration-none text-dark" href="{{ promotion.product_link }}">
+                                <h5 class="card-title">{{ promotion.product_name }}</h5>
+                            </a>
+                            <span class="original-price">R$ {{ promotion.original_price }}</span> <!-- Original price -->
+                            <span> R$ {{ promotion.changed_price }}</span> <!-- Changed price -->
+                        {% elif promotion.status == "Pendente" %}
+                            <a class="text-decoration-none text-dark">Esta promoção começa na data:
+                                {{ promotion.starts_at }}</a>
+                        {% elif promotion.status == "Expirado" %}
+                            <a class="text-decoration-none text-dark"> Promoção acabou na data:
+                                {{ promotion.expires_at }}</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if forloop.counter|divisibleby:"3" and not forloop.last %}
+                </div><div class="row">
+            {% endif %}
+        {% endfor %}
+    </div>
+    
+    {% if promotions.paginator.count|divisibleby:"3" == 2 %}
+        <div class="col-md-4 mb-3"></div>
+     {% elif promotions.paginator.count|divisibleby:"3" == 1 %}
+        <div class="col-md-4 mb-3"></div>
+        <div class="col-md-4 mb-3"></div>
+    {% endif %}
+
+    <!-- Pagination -->
+    {% if promotions.has_other_pages %}
+        {% with page=promotions %}
+            {% include "pagination.html" %}
+        {% endwith %}
+    {% endif %}
+    </section>
+{% endblock content %}

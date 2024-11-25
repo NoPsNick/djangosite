@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}
+Perfil - {{ user_data.username }}
+{% endblock title %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row row-profile">
+        <!-- Sidebar do Perfil -->
+        <div class="col-md-3">
+            <div class="card text-center">
+                <img src="{% static 'images/no_image.jpg' %}" class="card-img-top rounded-circle mx-auto mt-3" alt="Imagem de perfil" style="width: 150px;">
+                <div class="card-body">
+                    <h5 class="card-title">{{ user_data.username }}</h5>
+                    <p class="card-text">{{ user_data.email }}</p>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"><a href="{% url 'account_change_password' %}"><i class="bi bi-key"></i> Alterar Senha</a></li>
+                    {% if user_data.is_staff %}
+                    <li class="list-group-item"><a href="{% url 'admin:index' %}"><i class="bi bi-key"></i> Site Administrativo</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Conteúdo Principal -->
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Detalhes do Perfil</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3 align-items-center">
+                        <div class="col-sm-4">
+                            <p class="text-muted mb-0">Cargos</p>
+                        </div>
+                        <div class="col-sm-8">
+                            {% for id, role in user_data.role_info.items %}
+                                {{ user_data.role_icon|get_item:id }} <p class="text-secondary mb-0">{{ role|linebreaksbr }}</p>
+                            {% empty %}
+                                <a href="{% url 'products:list' %}" class="text-secondary mb-0">Você não possuí nenhum cargo, compre um clicando aqui.</a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% url 'orders:order_list' as orders_url %}
+                    {% with label="Pedidos" url=orders_url message="Meus Pedidos" %}
+                        {% include "partials/profile_field.html" %}
+                    {% endwith %}
+                    {% url 'payments:payment_list' as payments_url %}
+                    {% with label="Pagamentos" url=payments_url message="Meus Pagamentos" %}
+                        {% include "partials/profile_field.html" %}
+                    {% endwith %}
+                    {% url 'users:historic_list' as url_history %}
+                    {% with saldo=user_data.balance %}
+                    {% with label="Saldo atual" url=url_history message=saldo %}
+                        {% include "partials/profile_field.html" %}
+                    {% endwith %}
+                    {% endwith %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

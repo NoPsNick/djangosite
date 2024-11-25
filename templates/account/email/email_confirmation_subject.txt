@@ -1,0 +1,3 @@
+{% autoescape off %}
+Por favor, confirme seu endereço de e-mail.
+{% endautoescape %}

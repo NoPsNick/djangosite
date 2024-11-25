@@ -1,0 +1,6 @@
+{% autoescape off %}E-mail enviado pela empresa (nome_da_empresa)!
+
+{% block content %}{% endblock %}
+
+Obrigado por usar nosso site (site)
+{% endautoescape %}

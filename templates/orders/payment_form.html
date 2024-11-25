@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block content %}
+    <div class="container my-3 align-items-center">
+        <div class="col-lg-auto">
+            <h1>Pagamento para o pedido #{{ order_id }}</h1>
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                    {{ form.payment_method.label_tag }}<br>
+                    {{ form.payment_method }}
+                </div>
+        
+                <div class="form-group">
+                    {{ form.promo_codes.label_tag }}<br>
+                    {{ form.promo_codes }}
+                </div>
+        
+                <button type="submit" class="btn btn-primary">Criar Pagamento</button>
+            </form>
+        </div>
+    </div>
+
+{% endblock content %}
