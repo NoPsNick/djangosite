@@ -1,4 +1,5 @@
 from django.db.models import Q, Prefetch
+from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse_lazy, reverse
 from django.utils.decorators import method_decorator
@@ -63,10 +64,7 @@ class UserOrderListView(LoginRequiredMixin, TemplateView):
 
         if self.request.user.is_staff:
             # Use select_related for foreign keys and prefetch_related for reverse relations
-            orders_adm = Order.objects.select_related('customer').prefetch_related(
-                Prefetch('items', queryset=Item.objects.select_related('product__category', 'product__role_type',
-                                                                       'product__stock')),
-            ).order_by('-id')
+            orders_adm = Order.objects.select_related('customer').prefetch_related('items').order_by('-id')
             [Order.objects.cache_single_order(order) for order in orders_adm]
             if search_query:
                 orders_adm = orders_adm.filter(
@@ -120,6 +118,8 @@ class UserOrderDetailView(LoginRequiredMixin, TemplateView):
 
         # Fetch the cached order
         order = Order.objects.get_cached_order(order_id=order_id, customer=user)
+        if not user.is_staff and order.customer.pk != user.pk:
+            raise Http404('Página não encontrada')
 
         # Add order to the context
         context['order'] = order

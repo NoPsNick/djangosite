@@ -79,9 +79,6 @@ class UserHistoryManager(models.Manager):
         cache.set(cache_key, cached_histories, getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
         return cached_histories
 
-    def get_queryset(self, *args, **kwargs):
-        return super().get_queryset(*args, **kwargs)
-
 
 class RoleManager(models.Manager):
 

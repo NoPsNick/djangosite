@@ -57,6 +57,7 @@ class Item(models.Model):
     price = models.DecimalField(verbose_name='Preço', max_digits=10, decimal_places=2, default=0, blank=True,
                                 null=True)
     name = models.CharField(verbose_name='Nome do produto', max_length=50, default="", blank=True, null=True)
+    slug = models.CharField(verbose_name='Slug do produto', max_length=50, default="", blank=True, null=True)
     quantity = models.PositiveIntegerField(
         validators=[
             MinValueValidator(1),

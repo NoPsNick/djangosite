@@ -33,8 +33,8 @@ class UserHistoryListView(LoginRequiredMixin, TemplateView):
 
             return context
 
-        # Precisa utilizar o sorted() por causa que ao adicionar algum novo histórico, ele ficaria no
-        # final do dicionário, pois não se pega do banco de dados, e sim utiliza signals.
+        # Precisa utilizar o sorted() por causa que ao adicionar algum novo histórico, ele fica no
+        # final do dicionário, pois ele não é pego do banco de dados, e sim através de signals.
         histories_dict = UserHistory.objects.get_cached_histories(user_id=self.request.user.id)
         histories = [value for key, value in sorted(histories_dict.items(), reverse=True)]
 

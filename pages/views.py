@@ -1,16 +1,7 @@
 from django.views.generic import TemplateView
-from django.utils.decorators import method_decorator
 from django.core.exceptions import PermissionDenied
 
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status, viewsets
-from rest_framework.throttling import UserRateThrottle
-from rest_framework.permissions import IsAuthenticated
-
 from legaldocs.models import TermOfService, PrivacyPolicy, ReturnPolicy
-from .decorators import restrict_to_server
 from .services import get_user_data, get_abouts, get_promotions
 
 

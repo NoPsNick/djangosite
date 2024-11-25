@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.core.cache import cache
 from django.conf import settings
-from django.db.models import Prefetch
+from django.core.paginator import Paginator
 
 User = get_user_model()
 
@@ -14,12 +14,12 @@ class OrderManager(models.Manager):
         """
         Centralized method for query optimization with prefetch/related selects.
         """
-        from .models import Item
         return self.select_related('customer').prefetch_related(
             'items'
         )
 
-    def _get_cache_key(self, customer_id):
+    @staticmethod
+    def get_cache_key(customer_id):
         """
         Centralized cache key generation.
         """
@@ -31,11 +31,11 @@ class OrderManager(models.Manager):
         Retrieves cached orders or queries and caches them in bulk.
         """
         from .serializers import OrderSerializer
-        cache_key = self._get_cache_key(customer.id)
+        cache_key = self.get_cache_key(customer.id)
         cached_orders = cache.get(cache_key)
 
         if cached_orders is None:
-            orders = self._get_prefetched_queryset().filter(customer=customer).order_by('-id')
+            orders = self._get_prefetched_queryset().filter(customer_id=customer.id).order_by('-id')
             cached_orders = {
                 order.id: OrderSerializer(order).data
                 for order in orders
@@ -48,7 +48,7 @@ class OrderManager(models.Manager):
         """
         Retrieves a single cached order or fetches it from the database.
         """
-        cache_key = self._get_cache_key(customer.id)
+        cache_key = self.get_cache_key(customer.id)
         cached_orders = cache.get(cache_key)
 
         if not cached_orders:
@@ -68,8 +68,8 @@ class OrderManager(models.Manager):
         Caches a single order into the bulk cache.
         """
         from .serializers import OrderSerializer
-        cache_key = self._get_cache_key(order_instance.customer.id)
-        cached_orders = cache.get(cache_key) or {}
+        cache_key = self.get_cache_key(order_instance.customer.id)
+        cached_orders = self.get_cached_orders(order_instance.customer)
 
         order_data = OrderSerializer(order_instance).data
         cached_orders[order_instance.id] = order_data
@@ -81,15 +81,13 @@ class OrderManager(models.Manager):
         """
         Updates or adds an order to the cache.
         """
-        order_instance = self._get_prefetched_queryset().filter(id=order.id).first()
-        if order_instance:
-            self.cache_single_order(order_instance)
+        self.cache_single_order(order)
 
     def delete_cached_order(self, order):
         """
         Removes an order from the cache.
         """
-        cache_key = self._get_cache_key(order.customer.id)
+        cache_key = self.get_cache_key(order.customer.id)
         cached_orders = cache.get(cache_key) or {}
 
         if order.id in cached_orders:

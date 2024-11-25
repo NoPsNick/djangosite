@@ -27,12 +27,9 @@ def create_order(user, items_data):
                      product_id=product['id'],
                      name=product['name'],
                      price=product['price'],
+                     slug=product['slug'],
                      quantity=quantity)
             )
-
-        # Bulk create all items associated with the order
-        for item in items_to_create:
-            item.order = order
         Item.objects.bulk_create(items_to_create)
         order.save()
 

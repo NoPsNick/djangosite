@@ -21,7 +21,8 @@ class PaymentManager(models.Manager):
             'used_coupons'    # Pre-fetch the coupons that were used
         )
 
-    def _get_cache_key(self, customer_id):
+    @staticmethod
+    def get_cache_key(customer_id):
         """
         Centralized cache key generation.
         """
@@ -33,7 +34,7 @@ class PaymentManager(models.Manager):
         Retrieves cached payments or queries and caches them in bulk.
         """
         from .serializers import PaymentSerializer
-        cache_key = self._get_cache_key(customer.id)
+        cache_key = self.get_cache_key(customer.id)
         cached_payments = cache.get(cache_key)
 
         if cached_payments is None:
@@ -50,7 +51,7 @@ class PaymentManager(models.Manager):
         """
         Retrieves a single cached payment or fetches it from the database.
         """
-        cache_key = self._get_cache_key(customer.id)
+        cache_key = self.get_cache_key(customer.id)
         cached_payments = cache.get(cache_key)
 
         if not cached_payments:
@@ -70,8 +71,8 @@ class PaymentManager(models.Manager):
         Caches a single payment into the bulk cache.
         """
         from .serializers import PaymentSerializer
-        cache_key = self._get_cache_key(payment_instance.customer.id)
-        cached_payments = cache.get(cache_key) or {}
+        cache_key = self.get_cache_key(payment_instance.customer.id)
+        cached_payments = self.get_cached_payments(payment_instance.customer)
 
         payment_data = PaymentSerializer(payment_instance).data
         cached_payments[payment_instance.id] = payment_data
@@ -83,15 +84,13 @@ class PaymentManager(models.Manager):
         """
         Updates or adds a payment to the cache.
         """
-        payment_instance = self._get_prefetched_queryset().filter(id=payment.id).first()
-        if payment_instance:
-            self._cache_single_payment(payment_instance)
+        self._cache_single_payment(payment)
 
     def delete_cached_payment(self, payment):
         """
         Removes a payment from the cache.
         """
-        cache_key = self._get_cache_key(payment.customer.id)
+        cache_key = self.get_cache_key(payment.customer.id)
         cached_payments = cache.get(cache_key) or {}
 
         if payment.id in cached_payments:

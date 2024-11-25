@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.http import Http404
 from django.utils.decorators import method_decorator
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.paginator import Paginator
@@ -70,6 +71,8 @@ class UserPaymentDetailView(LoginRequiredMixin, TemplateView):
 
         # Fetch the cached order
         payment = Payment.objects.get_cached_payment(payment_id=payment_id, customer=user)
+        if not user.is_staff and payment.customer.pk != user.pk:
+            raise Http404('Página não encontrada')
 
         # Add order to the context
         context['payment'] = payment

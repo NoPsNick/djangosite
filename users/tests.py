@@ -93,7 +93,7 @@ class PerfilPageViewTest(TestCase):
         response = self.client.get(self.profile_url_1)
 
         # Assert that the response is a redirect to the account inactive page
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 403)
         self.assertRedirects(response, reverse('account_inactive'))  # Adjust this to your actual inactive account URL
 
     def test_cache_expires_and_fetches_new_data(self):

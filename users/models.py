@@ -59,12 +59,12 @@ class Role(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         self.clean()
-        self.verify_status()
 
         # Set expiration date if not set yet
         if not self.expires_at and hasattr(self.role_type, 'effective_days'):
             self.expires_at = timezone.now() + self.role_type.effective_days
 
+        self.verify_status()
         super().save(*args, **kwargs)
 
     def verify_status(self):

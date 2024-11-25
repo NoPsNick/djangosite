@@ -20,9 +20,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     def get_customer(self, obj):
         # Acessar customer diretamente evita consultas extras
-        if hasattr(obj, 'customer'):
-            return obj.customer.first_name if obj.customer.first_name else obj.customer.username
-        return None
+        return obj.customer.pk
 
     def get_used_coupons(self, obj):
         coupons = obj.used_coupons.all()
