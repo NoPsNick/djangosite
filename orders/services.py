@@ -1,6 +1,5 @@
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from django.core.cache import cache
 
 from products.services import get_stock_from_cache, get_product_from_cache
 from .models import Order, Item

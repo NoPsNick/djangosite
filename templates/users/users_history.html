@@ -20,19 +20,28 @@
                 <table class="table table-striped table-hover table-bordered">
                     <thead class="table-dark">
                         <tr>
-                            <th>ID do Histórico</th>
-                            <th>Tipo do Histórico</th>
-                            <th>Ações</th>
-                            <th>Informação do Histórico</th>
+                            {% if user.is_staff %}
+                                <th scope="col" class="text-center">Usuário</th>
+                            {% endif %}
+                            <th scope="col">ID</th>
+                            <th scope="col">Tipo do Histórico</th>
+                            <th scope="col">Informação do Histórico</th>
+                            <th scope="col">Data</th>
+                            <th scope="col">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for historic in histories %}
                             <tr>
+                                {% if user.is_staff %}
+                                    {% url 'pages:profile' user_id=historic.user.id as user_profile %}
+                                    <td class="text-center"><a href="{{ user_profile }}">{{ historic.user.id }}</a></td>
+                                {% endif %}
                                 <td>{{ historic.id }}</td>
-                                <td>{{ historic.type_display }}</td>
-                                <th>{% if historic.link %}<a href="{{ historic.link }}">Ir</a>{% endif %}</th>
+                                <td>{{ historic.type }}</td>
                                 <td>{{ historic.info|linebreaksbr }}</td>
+                                <td>{{ historic.modified }}</td>
+                                <td>{% if historic.link %}<a href="{{ historic.link }}">Ir</a>{% endif %}</td>
                             </tr>
                         {% endfor %}
                     </tbody>

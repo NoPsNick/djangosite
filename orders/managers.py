@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.core.cache import cache
 from django.conf import settings
-from django.core.paginator import Paginator
+
 
 User = get_user_model()
 
