@@ -32,7 +32,8 @@ def get_cart_items(request):
         if product:
             price = product.get('price', None)
             quantity_form = CartAddProductForm(
-                initial={"quantity": item["quantity"], "override": True}) if not product.get("is_role", False) else None
+                initial={"quantity": item["quantity"], "override": True}
+            ) if not product.get("is_role", False) else None
 
             product_price = str(price)
             total_price_product = str(Decimal(cart[slug]['quantity']) * Decimal(product_price))

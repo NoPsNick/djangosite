@@ -1,5 +1,4 @@
 import logging
-from email.policy import default
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -60,9 +59,10 @@ class PaymentService:
                 final_total_price = self._process_promotions()
 
                 self._update_stock()
-                self._finalize_payment(final_total_price)
 
-                return self.payment
+            self._finalize_payment(final_total_price)
+
+            return self.payment
         except ValidationError as e:
             raise e
         except Exception as e:
@@ -114,6 +114,7 @@ class PaymentService:
         )
         # Para não causar problemas é criado um objeto primeiro depois salva o objeto com o default_service
         payment.save(default_service=True)
+        self._append_user_history(UserHistory.payment_create)
         return payment
 
     def _process_promotions(self):
@@ -158,12 +159,11 @@ class PaymentService:
                 stock.sell(product=item.product, quantity=item.quantity)
 
     def _finalize_payment(self, final_total_price):
-        self._append_user_history(UserHistory.payment_create)
         user_balance_check = self.user.pay_with_balance(self.payment)
         if user_balance_check[0]:
             self.history_to_create.append(user_balance_check[1])
             self.finish_successful_payment()
-        elif Decimal(self.payment.amount ) != Decimal(final_total_price - user_balance_check[1]):
+        elif Decimal(self.payment.amount) != Decimal(final_total_price - user_balance_check[1]):
             self.payment.amount = Decimal(final_total_price - user_balance_check[1])
             self.payment.save(update_fields=['amount'], default_service=True)
 
@@ -214,6 +214,7 @@ class PaymentService:
             with transaction.atomic():
                 user = self.user or self.payment.customer
                 order = self.order or self.payment.order
+                self._finalize_order_and_payment(order)
                 order_items = self.order_items or order.items.select_related(
                     'product', 'product__stock', 'product__role_type').all()
 
@@ -222,17 +223,16 @@ class PaymentService:
 
                     if product.is_role:
                         if not product.is_role_product():
-                            raise ValidationError("This product is not a role. Create another order.")
+                            raise Exception(f'The {product.slug} is marked as a role, but its not')
                         self._process_role_product(user, product)
 
                     stock = getattr(product, 'stock', None)
                     if stock:
                         stock.successful_sell(product=product, quantity=item.quantity)
 
-                self._finalize_order_and_payment(order)
         except Exception as e:
             logger.error(f"Error finalizing payment {self.payment.id}: {e}")
-            self.process_payment_status(items=order_items)
+            self.process_payment_status(items=order_items, new_status=PaymentStatus.REFUNDED)
             raise ValidationError("An error occurred while processing the payment.")
 
     def _finalize_order_and_payment(self, order):
@@ -257,7 +257,7 @@ class PaymentService:
                 return PaymentStatus.REFUNDED
             elif payment.status == PaymentStatus.PENDING:
                 return PaymentStatus.CANCELLED
-            raise ValidationError(f"Wrong payment status: {payment.status}. It's only possible to update "
+            raise Exception(f"Wrong payment status: {payment.status}. It's only possible to update "
                                   f"{PaymentStatus.PENDING} -> {PaymentStatus.CANCELLED} or "
                                   f"{PaymentStatus.COMPLETED} -> {PaymentStatus.REFUNDED}.")
 

@@ -1,3 +1,4 @@
+from django.http import Http404
 from django.views.generic import TemplateView
 from django.core.exceptions import PermissionDenied
 
@@ -33,19 +34,21 @@ class ProfilePageView(TemplateView):
 
     def get_context_data(self, **kwargs):
         user = self.request.user  # Use the middleware to check the authenticated user
-        target_user_id = kwargs.get('user_id')  # Extract the target user's id from kwargs
+        target_user_id = kwargs.get('user_id', None)  # Extract the target user's id from kwargs
+        if not target_user_id:
+            raise Http404('Não foi possível encontrar esta página')
         context = super().get_context_data(**kwargs)
 
         # Ensure the user is authenticated
         if not user.is_authenticated:
             raise PermissionDenied("You must be logged in to view this profile.")
-
+        user_data = get_user_data(user, target_user_id)
         # Allow only the profile owner or staff members to view the profile
-        if user.id != target_user_id and not user.is_staff:
+        if (user.id != target_user_id and not user.is_staff) or not user_data:
             raise PermissionDenied("You do not have permission to view this profile.")
 
         # Fetch the profile data using the helper function (from cache or database)
-        context['user_data'] = get_user_data(user, target_user_id)
+        context['user_data'] = user_data
 
         return context
 
