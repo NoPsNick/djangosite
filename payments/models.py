@@ -180,6 +180,7 @@ class Payment(TimeStampedModel, SoftDeletableModel):
                 elif previous_status == PaymentStatus.PENDING and (self.status == PaymentStatus.CANCELLED
                                                                    or self.status == PaymentStatus.FAILED):
                     payment_service.process_payment_status(new_status=self.status)
+                return
             except Exception as e:
                 raise e
             finally:

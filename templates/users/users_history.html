@@ -22,8 +22,9 @@
                         <tr>
                             <th>ID do Histórico</th>
                             <th>Tipo do Histórico</th>
-                            <th>Ações</th>
                             <th>Informação do Histórico</th>
+                            <th>Data</th>
+                            <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -31,8 +32,9 @@
                             <tr>
                                 <td>{{ historic.id }}</td>
                                 <td>{{ historic.type_display }}</td>
-                                <th>{% if historic.link %}<a href="{{ historic.link }}">Ir</a>{% endif %}</th>
                                 <td>{{ historic.info|linebreaksbr }}</td>
+                                <td>{{ historic.modified}}</td>
+                                <th>{% if historic.link %}<a href="{{ historic.link }}">Ir</a>{% endif %}</th>
                             </tr>
                         {% endfor %}
                     </tbody>
