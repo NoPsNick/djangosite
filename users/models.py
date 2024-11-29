@@ -161,12 +161,12 @@ class User(AbstractUser):
                 if user.verify_pay_action(amount):
                     # User can pay the entire amount
                     user.balance = Decimal(user.balance) - amount
-                    history = UserHistory(user=user, info=f'Saldo utilizado: {Decimal(amount)}, '
-                                                               f'no pagamento #{payment.id}.',
-                                               type=UserHistory.user_balance, link=reverse(
-                        'payments:payment_detail', kwargs={
-                        "payment_id": payment_id}))
-                    user.save()
+                    user.save(update_fields=['balance'])
+                    history = UserHistory(user_id=user.id,
+                                          info=f'Saldo utilizado: {Decimal(amount)}, no pagamento #{payment_id}.',
+                                          type=UserHistory.user_balance,
+                                          link=reverse('payments:payment_detail',
+                                                       kwargs={"payment_id": payment_id}))
                     return True, history
                 else:
                     # User can pay only part of the amount
@@ -181,13 +181,13 @@ class User(AbstractUser):
                 payment_id, payment_amount = payment.id, payment.amount
                 user = User.objects.select_for_update().get(pk=self.pk)
                 user.balance += Decimal(payment_amount)
-                history = UserHistory(user=user, info=f'Saldo reembolsado: {Decimal(payment_amount)}, '
-                                                           f'do pagamento #{payment_id}.',
-                                           type=UserHistory.user_balance_refund, link=reverse(
-                        'payments:payment_detail', kwargs={
-                        "payment_id": payment_id}
-                    ))
                 user.save(update_fields=['balance'])
+                history = UserHistory(user_id=user.id,
+                                      info=f'Saldo reembolsado: {Decimal(payment_amount)}, do pagamento #{payment_id}.',
+                                      type=UserHistory.user_balance_refund,
+                                      link=reverse('payments:payment_detail',
+                                                   kwargs={"payment_id": payment_id})
+                                      )
                 return history
         except Exception as e:
             raise ValidationError(str(e))
@@ -198,8 +198,7 @@ class User(AbstractUser):
         verbose_name_plural = "usuários"
 
         indexes = [
-            models.Index(fields=['id']),
-            models.Index(fields=['username']),
+            models.Index(fields=['id'])
         ]
 
 

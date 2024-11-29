@@ -81,10 +81,8 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserHistorySerializer(serializers.ModelSerializer):
-    type_display = serializers.SerializerMethodField()
+    type = serializers.CharField(source='get_type_display', read_only=True)
+    modified = serializers.DateTimeField(format='%d/%m/%Y %H:%M:%S', read_only=True)
     class Meta:
         model = UserHistory
-        fields = ['id', 'type_display', 'info', 'link', 'modified']
-
-    def get_type_display(self, obj):
-        return obj.get_type_display()
+        fields = ['id', 'type', 'info', 'link', 'modified']

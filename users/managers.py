@@ -42,42 +42,35 @@ class UserHistoryManager(models.Manager):
     def get_history_cache_key(user_id):
         return f"user_{user_id}_histories"
 
+    @staticmethod
+    def _serialize_history(historic):
+        from .serializers import UserHistorySerializer
+        return UserHistorySerializer(historic).data
+
     def get_cached_histories(self, user_id):
         cache_key = self.get_history_cache_key(user_id)
-        cached_histories = cache.get(cache_key)
-
-        if cached_histories is None:
-            cached_histories = self._get_all_histories(user_id)
-
-        return cached_histories
+        return cache.get_or_set(cache_key, lambda: self._get_all_histories(user_id))
 
     def update_historic(self, user_id, historic):
-        from .serializers import UserHistorySerializer
         histories = self.get_cached_histories(user_id)
-        histories[historic.id] = UserHistorySerializer(historic).data
-        cache_key = self.get_history_cache_key(user_id)
-        cached_histories = histories
-        cache.set(cache_key, cached_histories, getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
+        histories[historic.id] = self._serialize_history(historic)
+        self._set_cache(user_id, histories)
 
     def delete_historic(self, user_id, historic):
-        histories = self.get_cached_histories(user_id) or {}
+        histories = self.get_cached_histories(user_id)
         histories.pop(historic.id, None)
-        cache_key = self.get_history_cache_key(user_id)
-        cached_histories = histories
-        cache.set(cache_key, cached_histories, getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
+        self._set_cache(user_id, histories)
 
     def _get_all_histories(self, user_id):
-        from .serializers import UserHistorySerializer
-        cache_key = self.get_history_cache_key(user_id)
-        user_history_queryset = self.filter(user=user_id)
-        cached_histories = {}
+        histories = {
+            history.id: self._serialize_history(history)
+            for history in self.filter(user=user_id)
+        }
+        self._set_cache(user_id, histories)
+        return histories
 
-        for history in user_history_queryset:
-            history_data = UserHistorySerializer(history).data
-            cached_histories[history.id] = history_data
-
-        cache.set(cache_key, cached_histories, getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
-        return cached_histories
+    def _set_cache(self, user_id, histories):
+        cache.set(self.get_history_cache_key(user_id), histories, getattr(settings, 'CACHE_TIMEOUT', 60 * 60 * 24 * 7))
 
 
 class RoleManager(models.Manager):

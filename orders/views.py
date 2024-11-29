@@ -16,8 +16,8 @@ from payments.services import PaymentService
 from products.models import Promotion
 from .models import Order, Item
 from cart.services import get_cart_items, save_cart
-from .services import create_order
 from pages.decorators import strict_rate_limit
+from .services import create_order
 
 
 @method_decorator(strict_rate_limit(url_names=['orders:create_order']), name='dispatch')
@@ -60,49 +60,44 @@ class UserOrderListView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        search_query = self.request.GET.get('search')
+        search_query = self.request.GET.get('search', '').lower()
+        context['orders'] = self.get_orders(search_query)
+        return context
 
+    def get_orders(self, search_query):
         if self.request.user.is_staff:
-            # Use select_related for foreign keys and prefetch_related for reverse relations
-            orders_adm = Order.objects.select_related('customer').prefetch_related('items').order_by('-id')
-            [Order.objects.cache_single_order(order) for order in orders_adm]
-            if search_query:
-                orders_adm = orders_adm.filter(
-                    Q(id__icontains=search_query) |
-                    Q(status__icontains=search_query) |
-                    Q(customer__first_name__icontains=search_query) |
-                    Q(customer__last_name__icontains=search_query) |
-                    Q(customer__email__icontains=search_query) |
-                    Q(customer__username__icontains=search_query)
-                )
+            orders = self.get_staff_orders(search_query)
+        else:
+            orders = self.get_user_orders(search_query)
+        return self.paginate_orders(orders)
 
-            # Get the count once and pass it to the custom paginator
-            orders_adm_list = list(orders_adm)
-            adm_total_count = len(orders_adm_list)
-            paginator = Paginator(orders_adm, 10)
-            paginator._count = adm_total_count
+    @staticmethod
+    def get_staff_orders(search_query):
+        orders = Order.objects.select_related('customer').prefetch_related('items').order_by('-id')
+        if search_query:
+            orders = orders.filter(
+                Q(id__icontains=search_query) |
+                Q(status__icontains=search_query) |
+                Q(customer__first_name__icontains=search_query) |
+                Q(customer__last_name__icontains=search_query) |
+                Q(customer__email__icontains=search_query) |
+                Q(customer__username__icontains=search_query)
+            )
+        return orders
 
-            # Get the page number from the GET request and get the corresponding page object
-            page_number = self.request.GET.get('page')
-            page_obj = paginator.get_page(page_number)
-
-            context['orders'] = page_obj
-            return context
-
-        orders = list(Order.objects.get_cached_orders(customer=self.request.user).values())
-
+    def get_user_orders(self, search_query):
+        orders_dict = Order.objects.get_cached_payments(customer=self.request.user)
+        orders = [value for _, value in sorted(orders_dict.items(), reverse=True)]
         if search_query:
             orders = [order for order in orders
                       if search_query.lower() in str(order['id']) or search_query.lower() in order['status']]
+        return orders
 
-        total_count = len(orders)
+    def paginate_orders(self, orders):
         paginator = Paginator(orders, 10)
-        paginator._count = total_count
+        paginator._count = len(list(orders))
         page_number = self.request.GET.get('page')
-        page_obj = paginator.get_page(page_number)
-
-        context['orders'] = page_obj
-        return context
+        return paginator.get_page(page_number)
 
 
 @method_decorator(strict_rate_limit(url_names=['orders:order_detail']), name='dispatch')
@@ -114,11 +109,13 @@ class UserOrderDetailView(LoginRequiredMixin, TemplateView):
         user = self.request.user
 
         # Extract order_id from kwargs
-        order_id = kwargs.get('order_id')
+        order_id = kwargs.get('order_id', None)
+        if not order_id:
+            raise Http404('Página não encontrada')
 
         # Fetch the cached order
         order = Order.objects.get_cached_order(order_id=order_id, customer=user)
-        if not user.is_staff and order.customer.pk != user.pk:
+        if (not user.is_staff and order.customer.pk != user.pk) or not order:
             raise Http404('Página não encontrada')
 
         # Add order to the context
