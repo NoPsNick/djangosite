@@ -184,9 +184,10 @@ class Payment(TimeStampedModel, SoftDeletableModel):
                 raise e
             finally:
                 payment_service.bulk_create_histories()
-        else:
-            # Execute the standard save if no service transition occurred
-            super().save(*args, **kwargs)
+                return
+
+        # Execute the standard save if no service transition occurred
+        super().save(*args, **kwargs)
 
 
 class PaymentPromotionCode(models.Model):
