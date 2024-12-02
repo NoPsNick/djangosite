@@ -1,8 +1,7 @@
 ---
 
 # Django Site
-
-> Um site feito em Django para marketing digital.
+Um site feito em Django para marketing digital.
 
 ---
 
