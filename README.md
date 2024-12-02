@@ -119,6 +119,7 @@ Preencha os valores de acordo com o seu ambiente.
 Para iniciar o servidor de desenvolvimento, use o comando:  
 
 ```bash
+mkdir loggers
 python manage.py makemigrations
 python manage.py migrate
 python manage.py runserver
