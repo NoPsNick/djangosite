@@ -24,7 +24,15 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     def get_used_coupons(self, obj):
         coupons = obj.used_coupons.all()
-        return [coupon.code for coupon in coupons]
+        coupons_dict = {}
+        for coupon in coupons:
+            if coupon.discount_amount:
+                coupons_dict[coupon.code] = {'type': 'Desconto Bruto',
+                                             'discount': f'-{coupon.discount_amount}'}
+            elif coupon.discount_percentage:
+                coupons_dict[coupon.code] = {'type': 'Desconto em Porcentagem',
+                                             'discount': f'-{coupon.discount_percentage}%'}
+        return coupons_dict
 
     def get_order(self, obj):
         return obj.order.id

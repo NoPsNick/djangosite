@@ -33,7 +33,8 @@ class PaymentService:
         self.valid_promo_codes = []
         self.history_to_create = []
 
-    def create_payment(self, user: User, order: Order, payment_type, promo_codes: list = None):
+    def create_payment(self, user: User, order: Order, payment_type, promo_codes: list = None
+                       )-> Payment | Exception | ValidationError :
         """
         Initializes the payment creation process.
 
@@ -56,6 +57,7 @@ class PaymentService:
         try:
             with transaction.atomic():
                 self.payment = self._create_payment()
+                self._append_user_history(UserHistory.payment_create)
                 final_total_price = self._process_promotions()
 
                 self._update_stock()
@@ -68,7 +70,7 @@ class PaymentService:
         except Exception as e:
             logger.error(e)
             self._cancel_payment_order()
-            raise Exception
+            raise
 
     def process_payment_status(self, new_status=None, items=None, _save=True):
         """
@@ -114,7 +116,6 @@ class PaymentService:
         )
         # Para não causar problemas é criado um objeto primeiro depois salva o objeto com o default_service
         payment.save(default_service=True)
-        self._append_user_history(UserHistory.payment_create)
         return payment
 
     def _process_promotions(self):
@@ -229,7 +230,6 @@ class PaymentService:
                     stock = getattr(product, 'stock', None)
                     if stock:
                         stock.successful_sell(product=product, quantity=item.quantity)
-
         except Exception as e:
             logger.error(f"Error finalizing payment {self.payment.id}: {e}")
             self.process_payment_status(items=order_items, new_status=PaymentStatus.REFUNDED)

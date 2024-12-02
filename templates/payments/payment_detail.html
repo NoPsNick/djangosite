@@ -50,12 +50,16 @@
                     <thead class="table-dark">
                         <tr>
                             <th>Código</th>
+                            <th>Tipo</th>
+                            <th>Valor</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for code in payment.used_coupons %}
+                        {% for key, value in payment.used_coupons.items %}
                             <tr>
-                                <td>{{ code }}</td>
+                                <td>{{ key }}</td>
+                                <td>{{ value.type }}</td>
+                                <td>{{ value.discount }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>

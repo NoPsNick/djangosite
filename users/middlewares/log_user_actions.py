@@ -1,6 +1,4 @@
-import hashlib
 import logging
-from datetime import datetime
 
 logger = logging.getLogger('user_activity')
 

@@ -172,8 +172,8 @@ class User(AbstractUser):
                     # User can pay only part of the amount
                     paid = Decimal(user.balance)
                     return False, paid
-        except Exception as e:
-            raise ValidationError(str(e))
+        except Exception:
+            raise
 
     def refund_to_balance(self, payment):
         try:
@@ -189,8 +189,8 @@ class User(AbstractUser):
                                                    kwargs={"payment_id": payment_id})
                                       )
                 return history
-        except Exception as e:
-            raise ValidationError(str(e))
+        except Exception:
+            raise
 
     class Meta:
         ordering = ['username']

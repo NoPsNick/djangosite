@@ -12,6 +12,7 @@ from django.views.generic import TemplateView, FormView
 from django.views.decorators.http import require_POST
 
 from payments.forms import PaymentForm
+from payments.models import Payment
 from payments.services import PaymentService
 from products.models import Promotion
 from .models import Order, Item
@@ -19,10 +20,13 @@ from cart.services import get_cart_items, save_cart
 from pages.decorators import strict_rate_limit
 from .services import create_order
 
+import logging
+
+logger = logging.getLogger('celery')
+
 
 @method_decorator(strict_rate_limit(url_names=['orders:create_order']), name='dispatch')
 class CreateOrderView(LoginRequiredMixin, View):
-
     @method_decorator(require_POST)
     def post(self, request, *args, **kwargs):
         # Get the cart items
@@ -39,11 +43,15 @@ class CreateOrderView(LoginRequiredMixin, View):
             # Call the create_order function
             order = create_order(user=request.user, items_data=items_data)
             response = redirect(reverse('orders:order_detail', kwargs={'order_id': order.id}))
-            save_cart(response, {}) # Set the cart with an empty dict(clear the cart items)
+            save_cart(response, {})  # Clear the cart
             messages.success(request, "Pedido criado com sucesso!")
             return response
         except ValidationError as e:
-            messages.error(request, str(e))
+            messages.error(request, f'Ocorreu um erro durante a criação do pedido: {e}')
+            return redirect(reverse('cart:detail'))
+        except Exception as e:
+            logger.error(f"Order creation failed for user {request.user.id}: {e}")
+            messages.error(request, 'Ocorreu um problema técnico. Por favor, tente novamente mais tarde.')
             return redirect(reverse('cart:detail'))
 
     @staticmethod
@@ -143,15 +151,19 @@ class PaymentCreateView(LoginRequiredMixin, FormView):
         try:
             # Call the CreatePayment class to create the payment and get it id.
             payment_service = PaymentService()
-            payment_id = payment_service.create_payment(
+            payment = payment_service.create_payment(
                 user=user,
                 order=order,
                 payment_type=payment_method,
-                promo_codes=promo_codes).id
-            payment_service.bulk_create_histories()
+                promo_codes=promo_codes)
+            if isinstance(payment, Payment):
+                payment_id = payment.id
+                payment_service.bulk_create_histories()
 
-            self.kwargs['payment_id'] = payment_id
-            messages.success(self.request, "Pagamento criado com sucesso!")
+                self.kwargs['payment_id'] = payment_id
+                messages.success(self.request, "Pagamento criado com sucesso!")
+            else:
+                raise Exception('Um erro ocorreu criando o pagamento.')
 
         except ValidationError as e:
             messages.error(self.request, f"Criação do pagamento falhou, motivo: {e}")

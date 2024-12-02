@@ -4,7 +4,7 @@ from django.core.cache import caches
 
 logger = logging.getLogger('celery')
 
-def get_cached_data(manager, cache_key, serializer_class, timeout):
+def get_cached_data(manager, cache_key, serializer_class, timeout) -> dict | None:
     file_cache = caches['file_based']
     cached_data = file_cache.get(cache_key)
 

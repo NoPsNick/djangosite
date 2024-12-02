@@ -1,3 +1,4 @@
+from django.http import HttpResponsePermanentRedirect, HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
@@ -12,7 +13,7 @@ from .services import get_cart_items, get_cart, save_cart
 
 
 @require_POST
-def add_to_cart(request, slug):
+def add_to_cart(request, slug) -> HttpResponsePermanentRedirect | HttpResponseRedirect:
     """
     Add a product to the cart, handling roles separately.
     """
