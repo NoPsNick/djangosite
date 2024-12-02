@@ -130,6 +130,6 @@ Acesse o site no navegador em **[http://localhost:8000](http://localhost:8000)**
 
 ## 📝 **Licença**
 
-Este projeto está sob licença. Consulte o arquivo [LICENSE.md](LICENSE.md) para mais detalhes.
+Este projeto está sob licença. Consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
 
 ---
